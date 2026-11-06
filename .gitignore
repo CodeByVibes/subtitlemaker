@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Local test media and generated subtitles
+*.srt
+*.vtt
+*.mp4
+*.mkv
+*.mp3
+*.wav
+*.m4a
+!tests/fixtures/**
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
