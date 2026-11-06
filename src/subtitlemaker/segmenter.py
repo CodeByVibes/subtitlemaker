@@ -5,15 +5,6 @@ Pure logic: no printing, no file access, no model.
 
 import re
 
-from .config import (
-    MAX_CPS,
-    MAX_DURATION,
-    MAX_LINE_LENGTH,
-    MAX_LINES,
-    MIN_DURATION,
-    MIN_GAP,
-)
-
 
 def clean_text(text):
     """Clean up Whisper text."""
@@ -33,12 +24,12 @@ def clean_text(text):
     return text.strip()
 
 
-def split_into_lines(text):
+def split_into_lines(text, style):
     """
-    Split subtitle into a maximum of MAX_LINES lines.
+    Split subtitle into a maximum of `style.max_lines` lines.
 
     Attempts to:
-    - keep lines below MAX_LINE_LENGTH
+    - keep lines below `style.max_line_length`
     - balance line lengths
     - prefer punctuation boundaries
     """
@@ -49,7 +40,7 @@ def split_into_lines(text):
         return []
 
     # Fits on one line
-    if len(text) <= MAX_LINE_LENGTH:
+    if len(text) <= style.max_line_length:
         return [text]
 
     # Find the best two-line split
@@ -60,10 +51,10 @@ def split_into_lines(text):
         left = " ".join(words[:i])
         right = " ".join(words[i:])
 
-        if len(left) > MAX_LINE_LENGTH:
+        if len(left) > style.max_line_length:
             continue
 
-        if len(right) > MAX_LINE_LENGTH:
+        if len(right) > style.max_line_length:
             continue
 
         # Prefer balanced lines
@@ -89,34 +80,34 @@ def split_into_lines(text):
     ]
 
 
-def adjust_timing(start, end, text):
+def adjust_timing(start, end, text, style):
     """
     Adjust subtitle duration according to reading speed.
 
-    The subtitle is never made shorter than MIN_DURATION
-    and never longer than MAX_DURATION.
+    The subtitle is never made shorter than `style.min_duration`
+    and never longer than `style.max_duration`.
     """
 
     duration = end - start
 
     # Required duration based on CPS
-    required_duration = len(text) / MAX_CPS
+    required_duration = len(text) / style.max_cps
 
     duration = max(
         duration,
         required_duration,
-        MIN_DURATION,
+        style.min_duration,
     )
 
     duration = min(
         duration,
-        MAX_DURATION,
+        style.max_duration,
     )
 
     return start, start + duration
 
 
-def build_subtitles(segments):
+def build_subtitles(segments, style):
     """Convert Whisper segments into formatted subtitles."""
 
     subtitles = []
@@ -133,7 +124,7 @@ def build_subtitles(segments):
         end = float(segment.end)
 
         # Maximum characters allowed in one subtitle cue
-        max_chars = MAX_LINE_LENGTH * MAX_LINES
+        max_chars = style.max_line_length * style.max_lines
 
         # Split long Whisper segments
         if len(text) <= max_chars:
@@ -178,7 +169,7 @@ def build_subtitles(segments):
                 current_start + chunk_duration
             )
 
-            lines = split_into_lines(chunk)
+            lines = split_into_lines(chunk, style)
 
             if not lines:
                 continue
@@ -195,19 +186,20 @@ def build_subtitles(segments):
                     current_start,
                     chunk_end,
                     plain_text,
+                    style,
                 )
             )
 
             # Prevent overlap
             adjusted_start = max(
                 adjusted_start,
-                previous_end + MIN_GAP,
+                previous_end + style.min_gap,
             )
 
             # Safety
             if adjusted_end <= adjusted_start:
                 adjusted_end = (
-                    adjusted_start + MIN_DURATION
+                    adjusted_start + style.min_duration
                 )
 
             subtitles.append(

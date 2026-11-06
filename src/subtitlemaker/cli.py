@@ -1,23 +1,12 @@
 """Command line interface."""
 
 import argparse
+import dataclasses
 import time
 from pathlib import Path
 
 from ._cuda import reexec_with_cuda_libs
-from .config import (
-    COMPUTE_TYPE,
-    CONDITION_ON_PREVIOUS_TEXT,
-    DEVICE,
-    MAX_CPS,
-    MAX_DURATION,
-    MAX_LINE_LENGTH,
-    MAX_LINES,
-    MIN_DURATION,
-    MIN_GAP,
-    MODEL,
-    VAD_FILTER,
-)
+from .config import ConfigError, load_config
 from .formats.srt import write_srt
 from .media import get_duration
 from .progress import format_time, show_progress
@@ -122,7 +111,82 @@ def main():
         ),
     )
 
+    parser.add_argument(
+        "--config",
+        metavar="FILE",
+        help=(
+            "TOML config file (default: "
+            "~/.config/subtitlemaker/config.toml "
+            "if it exists)"
+        ),
+    )
+
+    style_group = parser.add_argument_group(
+        "subtitle style",
+        "Override the defaults and any config file values",
+    )
+
+    style_group.add_argument(
+        "--max-line-length",
+        type=int,
+        metavar="N",
+        help="Maximum characters per line (default: 42)",
+    )
+
+    style_group.add_argument(
+        "--max-lines",
+        type=int,
+        metavar="N",
+        help="Maximum lines per subtitle (default: 2)",
+    )
+
+    style_group.add_argument(
+        "--max-cps",
+        type=float,
+        metavar="N",
+        help="Maximum characters per second (default: 20)",
+    )
+
+    style_group.add_argument(
+        "--min-duration",
+        type=float,
+        metavar="SEC",
+        help="Minimum subtitle duration (default: 1.0)",
+    )
+
+    style_group.add_argument(
+        "--max-duration",
+        type=float,
+        metavar="SEC",
+        help="Maximum subtitle duration (default: 7.0)",
+    )
+
+    style_group.add_argument(
+        "--min-gap",
+        type=float,
+        metavar="SEC",
+        help="Minimum gap between subtitles (default: 0.05)",
+    )
+
     args = parser.parse_args()
+
+    # --------------------------------------------------------
+    # Settings: defaults < config file < command line
+    # --------------------------------------------------------
+
+    try:
+        style, model_config = load_config(args.config)
+
+        overrides = {
+            field.name: getattr(args, field.name)
+            for field in dataclasses.fields(style)
+            if getattr(args, field.name) is not None
+        }
+
+        style = dataclasses.replace(style, **overrides)
+
+    except ConfigError as e:
+        parser.error(str(e))
 
     # --------------------------------------------------------
     # Language options
@@ -178,7 +242,7 @@ def main():
         # back towards the language it was written in, which
         # fights per-segment language detection.
         condition_on_previous_text = (
-            CONDITION_ON_PREVIOUS_TEXT
+            model_config.condition_on_previous_text
             and not multilingual
         )
 
@@ -227,9 +291,9 @@ def main():
     print(f"Output:         {output_file}")
     print(f"Language:       {language_display}")
     print(f"Task:           {args.task}")
-    print(f"Model:          {MODEL}")
-    print(f"Device:         {DEVICE}")
-    print(f"Compute type:   {COMPUTE_TYPE}")
+    print(f"Model:          {model_config.name}")
+    print(f"Device:         {model_config.device}")
+    print(f"Compute type:   {model_config.compute_type}")
     print(
         f"Prompt history: "
         f"{'on' if condition_on_previous_text else 'off'}"
@@ -245,22 +309,22 @@ def main():
 
     print("Subtitle configuration:")
     print(
-        f"  Max line length:  {MAX_LINE_LENGTH}"
+        f"  Max line length:  {style.max_line_length}"
     )
     print(
-        f"  Max lines:        {MAX_LINES}"
+        f"  Max lines:        {style.max_lines}"
     )
     print(
-        f"  Max CPS:          {MAX_CPS}"
+        f"  Max CPS:          {style.max_cps:g}"
     )
     print(
-        f"  Min duration:     {MIN_DURATION}s"
+        f"  Min duration:     {style.min_duration}s"
     )
     print(
-        f"  Max duration:     {MAX_DURATION}s"
+        f"  Max duration:     {style.max_duration}s"
     )
     print(
-        f"  Minimum gap:      {MIN_GAP}s"
+        f"  Minimum gap:      {style.min_gap}s"
     )
     print()
 
@@ -297,9 +361,9 @@ def main():
     print("Loading Whisper model...")
 
     model = load_model(
-        MODEL,
-        DEVICE,
-        COMPUTE_TYPE,
+        model_config.name,
+        model_config.device,
+        model_config.compute_type,
     )
 
     print("Transcribing...")
@@ -313,7 +377,7 @@ def main():
         str(input_file),
         language=language_hint,
         task=args.task,
-        vad_filter=VAD_FILTER,
+        vad_filter=model_config.vad_filter,
         multilingual=multilingual,
         condition_on_previous_text=(
             condition_on_previous_text
@@ -402,7 +466,8 @@ def main():
     print("Formatting subtitles...")
 
     subtitles = build_subtitles(
-        processed_segments
+        processed_segments,
+        style,
     )
 
     print(
