@@ -2,15 +2,19 @@
 
 import argparse
 import dataclasses
+import logging
 import time
 from pathlib import Path
 
 from ._cuda import reexec_with_cuda_libs
 from .config import ConfigError, load_config
 from .formats.srt import write_srt
+from .log import LOGGER_NAME, setup_logging
 from .media import get_duration
-from .progress import format_time, show_progress
+from .progress import TranscriptionProgress, format_time
 from .segmenter import build_subtitles
+
+log = logging.getLogger(LOGGER_NAME)
 
 
 def main():
@@ -121,6 +125,22 @@ def main():
         ),
     )
 
+    verbosity = parser.add_mutually_exclusive_group()
+
+    verbosity.add_argument(
+        "-q",
+        "--quiet",
+        action="store_true",
+        help="Only show warnings and errors (no progress bar)",
+    )
+
+    verbosity.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Show debug output",
+    )
+
     style_group = parser.add_argument_group(
         "subtitle style",
         "Override the defaults and any config file values",
@@ -169,6 +189,11 @@ def main():
     )
 
     args = parser.parse_args()
+
+    console = setup_logging(
+        quiet=args.quiet,
+        verbose=args.verbose,
+    )
 
     # --------------------------------------------------------
     # Settings: defaults < config file < command line
@@ -249,10 +274,7 @@ def main():
     input_file = Path(args.input)
 
     if not input_file.exists():
-        print(
-            f"Error: input file does not exist: "
-            f"{input_file}"
-        )
+        log.error("input file does not exist: %s", input_file)
         return 1
 
     # Default output name
@@ -287,52 +309,36 @@ def main():
             languages[0] if languages else "auto-detect"
         )
 
-    print(f"Input:          {input_file}")
-    print(f"Output:         {output_file}")
-    print(f"Language:       {language_display}")
-    print(f"Task:           {args.task}")
-    print(f"Model:          {model_config.name}")
-    print(f"Device:         {model_config.device}")
-    print(f"Compute type:   {model_config.compute_type}")
-    print(
-        f"Prompt history: "
-        f"{'on' if condition_on_previous_text else 'off'}"
+    log.info("Input:          %s", input_file)
+    log.info("Output:         %s", output_file)
+    log.info("Language:       %s", language_display)
+    log.info("Task:           %s", args.task)
+    log.info("Model:          %s", model_config.name)
+    log.info("Device:         %s", model_config.device)
+    log.info("Compute type:   %s", model_config.compute_type)
+    log.info(
+        "Prompt history: %s",
+        "on" if condition_on_previous_text else "off",
     )
-    print()
 
     if multilingual and args.task == "translate":
-        print(
-            "Note: task=translate turns every "
-            "segment into English."
+        log.warning(
+            "task=translate turns every segment into English."
         )
-        print()
 
-    print("Subtitle configuration:")
-    print(
-        f"  Max line length:  {style.max_line_length}"
-    )
-    print(
-        f"  Max lines:        {style.max_lines}"
-    )
-    print(
-        f"  Max CPS:          {style.max_cps:g}"
-    )
-    print(
-        f"  Min duration:     {style.min_duration}s"
-    )
-    print(
-        f"  Max duration:     {style.max_duration}s"
-    )
-    print(
-        f"  Minimum gap:      {style.min_gap}s"
-    )
-    print()
+    log.debug("Subtitle configuration:")
+    log.debug("  Max line length:  %s", style.max_line_length)
+    log.debug("  Max lines:        %s", style.max_lines)
+    log.debug("  Max CPS:          %g", style.max_cps)
+    log.debug("  Min duration:     %ss", style.min_duration)
+    log.debug("  Max duration:     %ss", style.max_duration)
+    log.debug("  Minimum gap:      %ss", style.min_gap)
 
     # --------------------------------------------------------
     # Duration
     # --------------------------------------------------------
 
-    print("Reading media information...")
+    log.debug("Reading media information...")
 
     try:
         duration = get_duration(
@@ -340,25 +346,17 @@ def main():
         )
 
     except Exception as e:
-        print(
-            f"Warning: couldn't determine "
-            f"duration: {e}"
-        )
+        log.warning("couldn't determine duration: %s", e)
         duration = 0.0
 
     if duration:
-        print(
-            f"Duration:       "
-            f"{format_time(duration)}"
-        )
-
-    print()
+        log.info("Duration:       %s", format_time(duration))
 
     # --------------------------------------------------------
     # Load Whisper
     # --------------------------------------------------------
 
-    print("Loading Whisper model...")
+    log.info("Loading Whisper model...")
 
     model = load_model(
         model_config.name,
@@ -366,8 +364,7 @@ def main():
         model_config.compute_type,
     )
 
-    print("Transcribing...")
-    print()
+    log.info("Transcribing...")
 
     transcription_start = (
         time.monotonic()
@@ -396,56 +393,49 @@ def main():
 
     processed_segments = []
 
-    for segment in segments:
+    with TranscriptionProgress(
+        duration,
+        console,
+        enabled=not args.quiet,
+    ) as progress:
 
-        processed_segments.append(
-            segment
-        )
+        for segment in segments:
 
-        if duration:
-            show_progress(
-                float(segment.end),
-                duration,
-                transcription_start,
+            processed_segments.append(
+                segment
             )
 
-    # Final progress
-    if duration:
-        show_progress(
-            duration,
-            duration,
-            transcription_start,
-        )
+            progress.update(float(segment.end))
 
-    print()
-    print()
+        # Final progress
+        progress.update(duration)
 
     elapsed = (
         time.monotonic()
         - transcription_start
     )
 
-    print(
-        f"Transcription complete in "
-        f"{format_time(elapsed)}."
+    log.info(
+        "Transcription complete in %s.",
+        format_time(elapsed),
     )
 
     if duration and elapsed > 0:
 
-        print(
-            f"Average speed: "
-            f"{duration / elapsed:.2f}x realtime"
+        log.info(
+            "Average speed: %.2fx realtime",
+            duration / elapsed,
         )
 
     if multilingual:
 
-        print(
-            f"Initial language: "
-            f"{info.language} "
-            f"({info.language_probability * 100:.1f}%)"
+        log.info(
+            "Initial language: %s (%.1f%%)",
+            info.language,
+            info.language_probability * 100,
         )
 
-        print(
+        log.info(
             "Languages were re-detected for "
             "every segment; the value above "
             "is only the first guess."
@@ -453,35 +443,30 @@ def main():
 
     else:
 
-        print(
-            f"Detected language: "
-            f"{info.language} "
-            f"({info.language_probability * 100:.1f}%)"
+        log.info(
+            "Detected language: %s (%.1f%%)",
+            info.language,
+            info.language_probability * 100,
         )
 
     # --------------------------------------------------------
     # Subtitle formatting
     # --------------------------------------------------------
 
-    print("Formatting subtitles...")
+    log.info("Formatting subtitles...")
 
     subtitles = build_subtitles(
         processed_segments,
         style,
     )
 
-    print(
-        f"Generated {len(subtitles)} "
-        f"subtitle cues."
-    )
+    log.info("Generated %d subtitle cues.", len(subtitles))
 
     # --------------------------------------------------------
     # Write SRT
     # --------------------------------------------------------
 
-    print(
-        f"Writing: {output_file}"
-    )
+    log.info("Writing: %s", output_file)
 
     try:
         write_srt(
@@ -490,19 +475,14 @@ def main():
         )
 
     except OSError as e:
-        print(
-            f"Error: couldn't write "
-            f"{output_file}: {e}"
-        )
+        log.error("couldn't write %s: %s", output_file, e)
         return 1
 
-    print()
-    print("Done! 🎬")
-    print(
-        f"Subtitle file: {output_file}"
-    )
+    log.info("Done! 🎬")
+    log.info("Subtitle file: %s", output_file)
 
     return 0
+
 
 if __name__ == "__main__":
     raise SystemExit(main())
