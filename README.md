@@ -17,7 +17,7 @@ interview.mkv  interview.srt
 - **Readable by default:** at most two lines of 42 characters, 20 characters per second, 1 to 7 seconds on screen. All of it is configurable.
 - **Batch mode:** pass many files or whole folders; the model is loaded once and one bad file doesn't stop the rest.
 - **GPU or CPU.** `--device auto` uses an NVIDIA GPU when there is one and falls back to the CPU when there isn't.
-- **Mixed-language audio** (`-l en,sv`), and optional translation to English (`-t translate`).
+- **Mixed-language audio** (`-m`, or `-l en,sv`), and optional translation to English (`-t translate`).
 
 ## Install
 
@@ -96,7 +96,7 @@ The exit code is `0` when everything succeeded, `1` if any file failed (the othe
 
 By default Whisper detects the language from the start of each file. If it guesses wrong, or the start is music, name the language with `-l`.
 
-For audio that switches language, list the languages (`-l en,sv`) or add `-m`. The language is then re-detected for every segment. Be aware that `-t translate` turns every segment into English.
+For audio that switches language, add `-m`, or list several languages (`-l en,sv`). The language is then re-detected for every segment. The list only switches this on: detection is not limited to the languages you name. Be aware that `-t translate` turns every segment into English.
 
 ### Subtitle style
 

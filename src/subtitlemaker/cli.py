@@ -101,8 +101,9 @@ def _process_file(model, input_file, outputs, options, console):
 
         if options.languages:
             language_display = (
-                f"{', '.join(options.languages)} "
-                f"(re-detected per segment)"
+                f"auto-detect per segment "
+                f"(listed: {', '.join(options.languages)}; "
+                f"detection is not limited to these)"
             )
 
         else:
@@ -300,10 +301,12 @@ def main():
         "-l",
         "--language",
         help=(
-            "Source language. Several "
-            "comma-separated codes are "
-            "allowed for mixed-language "
-            "audio (e.g. en, sv, he,en)"
+            "Source language (e.g. sv). Several "
+            "comma-separated codes (e.g. he,en) "
+            "switch on per-segment language "
+            "detection, like -m; the list does "
+            "not limit which languages can be "
+            "detected"
         ),
     )
 

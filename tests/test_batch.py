@@ -258,3 +258,13 @@ def test_without_verbose_there_is_no_traceback(run, fake_model, library, capsys)
 
     assert "failed to process" in err
     assert "Traceback" not in err
+
+
+def test_a_language_list_is_logged_as_not_limiting_detection(run, fake_model, library, capsys):
+    assert run(library / "a.mp3", "-l", "he,en") == 0
+
+    err = capsys.readouterr().err
+
+    assert "auto-detect per segment" in err
+    assert "not limited" in err
+    assert fake_model.calls[0]["language"] is None
