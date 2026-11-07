@@ -29,3 +29,27 @@ def get_duration(filename):
 
     finally:
         container.close()
+
+
+# Containers and codecs people commonly want subtitles for. Anything else
+# can still be given explicitly as a file; this only limits what is picked
+# up when a folder is scanned.
+MEDIA_EXTENSIONS = frozenset(
+    {
+        ".mp4", ".mkv", ".mov", ".avi", ".webm", ".m4v", ".ts", ".flv", ".wmv",
+        ".mpg", ".mpeg", ".3gp", ".mp3", ".m4a", ".aac", ".wav", ".flac", ".ogg",
+        ".oga", ".opus", ".wma", ".mka",
+    }
+)  # fmt: skip
+
+
+def find_media(directory, recursive=False):
+    """The media files in `directory`, sorted by path."""
+
+    candidates = directory.rglob("*") if recursive else directory.iterdir()
+
+    return sorted(
+        path
+        for path in candidates
+        if path.suffix.lower() in MEDIA_EXTENSIONS and path.is_file()
+    )
