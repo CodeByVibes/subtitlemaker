@@ -43,11 +43,6 @@ def test_long_segment_is_split_without_losing_words(segment):
     assert " ".join(plain(c) for c in cues) == text
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="chunks are packed to max_line_length * max_lines without checking that a "
-    "two-line split exists, so a line can exceed the limit (fixed in SUBMAKER-13)",
-)
 def test_cues_respect_line_and_length_limits(segment):
     text = "the quick brown fox jumps over the lazy dog " * 8
 

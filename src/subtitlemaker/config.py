@@ -30,9 +30,11 @@ class SubtitleStyle:
     min_gap: float = 0.05  # Minimum gap between subtitles (seconds)
 
     def __post_init__(self):
-        for name in ("max_line_length", "max_lines"):
-            if not isinstance(getattr(self, name), int) or getattr(self, name) < 1:
-                raise ConfigError(f"{name} must be an integer of at least 1")
+        if not isinstance(self.max_line_length, int) or self.max_line_length < 1:
+            raise ConfigError("max_line_length must be an integer of at least 1")
+
+        if self.max_lines not in (1, 2):
+            raise ConfigError("max_lines must be 1 or 2")
 
         for name in ("max_cps", "min_duration", "max_duration"):
             if getattr(self, name) <= 0:
