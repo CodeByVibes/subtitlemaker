@@ -141,3 +141,22 @@ def test_write_txt_with_no_cues_is_empty(tmp_path):
     write_txt([], path)
 
     assert path.read_text(encoding="utf-8") == ""
+
+
+def test_overlong_word_gives_valid_vtt_and_srt(segment, tmp_path):
+    from subtitlemaker.config import SubtitleStyle
+    from subtitlemaker.formats import FORMATS
+    from subtitlemaker.segmenter import build_subtitles
+
+    cues = build_subtitles([segment(" " + "x" * 80, 0.0, 3.0)], SubtitleStyle())
+
+    for fmt in FORMATS.values():
+        path = tmp_path / f"out.{fmt.extension}"
+        fmt.write(cues, path)
+
+    for ext in ("srt", "vtt"):
+        blocks = (tmp_path / f"out.{ext}").read_text().strip().split("\n\n")
+        cue_block = blocks[-1].split("\n")
+        text_lines = cue_block[cue_block.index(next(x for x in cue_block if "-->" in x)) + 1 :]
+        assert text_lines
+        assert all(text_lines)

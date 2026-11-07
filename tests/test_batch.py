@@ -210,3 +210,29 @@ def test_a_run_with_failures_does_not_claim_success(run, fake_model, library, ca
 
     assert "1 failed" in caplog.text
     assert "Done!" not in caplog.text
+
+
+# --- output must never be an input -------------------------------------------
+
+
+def test_output_may_not_overwrite_the_input(run, fake_model, library):
+    video = library / "b.mp4"
+    video.write_bytes(b"precious")
+
+    with pytest.raises(SystemExit) as exit_info:
+        run(video, "-q", "-o", video)
+
+    assert exit_info.value.code == 2
+    assert video.read_bytes() == b"precious"
+    assert fake_model.calls == []
+
+
+def test_output_may_not_overwrite_another_input_via_a_different_spelling(run, fake_model, library):
+    notes = library / "notes.txt"
+    notes.write_bytes(b"mine")
+
+    with pytest.raises(SystemExit) as exit_info:
+        run(library / "a.mp3", notes, "-q", "-f", "txt", "-d", library / "sub" / "..")
+
+    assert exit_info.value.code == 2
+    assert notes.read_bytes() == b"mine"

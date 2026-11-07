@@ -74,3 +74,16 @@ def test_unsplittable_text_falls_back_to_halving():
 
     assert len(lines) == 2
     assert " ".join(lines) == text
+
+
+@pytest.mark.parametrize("max_lines", [1, 2])
+def test_one_overlong_word_never_gives_an_empty_line(max_lines):
+    word = "x" * 100
+    style = SubtitleStyle(max_lines=max_lines)
+
+    lines = split_into_lines(word, style)
+
+    assert lines
+    assert all(lines)
+    assert len(lines) <= max_lines
+    assert "".join(lines) == word

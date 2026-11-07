@@ -71,6 +71,18 @@ def split_into_lines(text, style):
     if best_split:
         return list(best_split)
 
+    # A single word longer than the line cannot be split at a space. Cut it
+    # in half (or leave it whole with one line) rather than return an empty
+    # line, which would end the cue early in SRT and invalidate a WebVTT file.
+    if len(words) == 1:
+
+        if style.max_lines < 2:
+            return [text]
+
+        half = (len(text) + 1) // 2
+
+        return [text[:half], text[half:]]
+
     # Fallback: split approximately in half.
     midpoint = len(words) // 2
 

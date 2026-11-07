@@ -632,18 +632,27 @@ def main():
     plan = {file: _plan_outputs(file, args, formats) for file in files}
 
     owners = {}
+    input_paths = {file.resolve(): file for file in files}
 
     for file, outputs in plan.items():
 
         for path in outputs.values():
 
-            if path in owners:
+            key = path.resolve()
+
+            if key in input_paths:
                 parser.error(
-                    f"{owners[path]} and {file} would both write {path}; "
+                    f"the output {path} is the input file {input_paths[key]}; "
+                    f"it would be overwritten"
+                )
+
+            if key in owners:
+                parser.error(
+                    f"{owners[key]} and {file} would both write {path}; "
                     f"use separate output folders"
                 )
 
-            owners[path] = file
+            owners[key] = file
 
     failed = len(missing)
     skipped = 0

@@ -4,6 +4,12 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-11-07
+
+### Fixed
+- A single word longer than the line limit (a URL, or any Chinese or Japanese sentence, which has no spaces) produced a subtitle starting with an empty line. In WebVTT that made ffmpeg read the whole file as empty. The word is now split in half, or kept whole when only one line is allowed.
+- `-o` (or `-d`) pointing at an input file would overwrite that input, for example `subtitlemaker talk.mp4 -o talk.mp4` replaced the video with subtitles. This is now refused as a usage error before anything runs. Output collisions are also compared by resolved path.
+
 ## [0.1.1] - 2026-11-07
 
 ### Fixed
@@ -37,6 +43,7 @@ First public release. It grew out of a single prototype script.
 - The GPU libraries are loaded without re-launching the Python process, so `python -m subtitlemaker` works.
 - A GPU without the CUDA 12 libraries no longer ends in a traceback in the middle of a run.
 
-[Unreleased]: https://github.com/CodeByVibes/subtitlemaker/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/CodeByVibes/subtitlemaker/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/CodeByVibes/subtitlemaker/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/CodeByVibes/subtitlemaker/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/CodeByVibes/subtitlemaker/releases/tag/v0.1.0
