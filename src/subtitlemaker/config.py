@@ -45,15 +45,31 @@ class SubtitleStyle:
             raise ConfigError("min_duration must not be greater than max_duration")
 
 
+DEVICES = ("auto", "cuda", "cpu")
+
+
 @dataclass(frozen=True)
 class ModelConfig:
-    """Which Whisper model to run, and how."""
+    """
+    Which Whisper model to run, and how.
 
-    name: str = "large-v3"
-    device: str = "cuda"
-    compute_type: str = "float16"
+    `name`, `device` and `compute_type` may be "auto", which is resolved
+    at run time from the hardware (see `transcribe.resolve_model_config`).
+    """
+
+    name: str = "auto"  # model size, Hugging Face repo id, or local path
+    device: str = "auto"  # auto, cuda or cpu
+    compute_type: str = "auto"  # e.g. float16, int8, int8_float16
     vad_filter: bool = True
     condition_on_previous_text: bool = True
+
+    def __post_init__(self):
+        if self.device not in DEVICES:
+            raise ConfigError(f"device must be one of: {', '.join(DEVICES)}")
+
+        for name in ("name", "compute_type"):
+            if not getattr(self, name).strip():
+                raise ConfigError(f"{name} must not be empty")
 
 
 # Names accepted in each section of the config file.

@@ -6,7 +6,7 @@ import logging
 import time
 from pathlib import Path
 
-from .config import ConfigError, load_config
+from .config import DEVICES, ConfigError, load_config
 from .formats.srt import write_srt
 from .log import LOGGER_NAME, setup_logging
 from .media import get_duration
@@ -20,7 +20,12 @@ def main():
 
     # Imported here so --help and argument errors don't wait for the
     # heavy machine learning libraries to load.
-    from .transcribe import load_model, parse_language_argument
+    from .transcribe import (
+        ModelError,
+        load_model,
+        parse_language_argument,
+        resolve_model_config,
+    )
 
     parser = argparse.ArgumentParser(
         prog="subtitlemaker",
@@ -140,6 +145,40 @@ def main():
         help="Show debug output",
     )
 
+    model_group = parser.add_argument_group(
+        "model",
+        "Override the defaults and any config file values",
+    )
+
+    model_group.add_argument(
+        "--model",
+        metavar="NAME",
+        help=(
+            "Whisper model: tiny, base, small, medium, large-v3, "
+            "turbo, ..., a Hugging Face repo id, or a local path "
+            "(default: large-v3 on GPU, small on CPU). Models are "
+            "downloaded on first use."
+        ),
+    )
+
+    model_group.add_argument(
+        "--device",
+        choices=DEVICES,
+        help=(
+            "Where to run: auto uses the GPU if one is found and "
+            "falls back to the CPU (default: auto)"
+        ),
+    )
+
+    model_group.add_argument(
+        "--compute-type",
+        metavar="TYPE",
+        help=(
+            "Numeric precision, e.g. float16, int8_float16, int8, "
+            "float32 (default: float16 on GPU, int8 on CPU)"
+        ),
+    )
+
     style_group = parser.add_argument_group(
         "subtitle style",
         "Override the defaults and any config file values",
@@ -209,6 +248,19 @@ def main():
 
         style = dataclasses.replace(style, **overrides)
 
+        # Command line option -> ModelConfig field
+        model_overrides = {
+            field: getattr(args, option)
+            for option, field in (
+                ("model", "name"),
+                ("device", "device"),
+                ("compute_type", "compute_type"),
+            )
+            if getattr(args, option) is not None
+        }
+
+        model_config = dataclasses.replace(model_config, **model_overrides)
+
     except ConfigError as e:
         parser.error(str(e))
 
@@ -274,6 +326,17 @@ def main():
 
     if not input_file.exists():
         log.error("input file does not exist: %s", input_file)
+        return 1
+
+    # A GPU that turns out to be unusable only falls back to the CPU when
+    # the device was left on auto.
+    allow_cpu_fallback = model_config.device == "auto"
+
+    try:
+        model_config = resolve_model_config(model_config)
+
+    except ModelError as e:
+        log.error("%s", e)
         return 1
 
     # Default output name
@@ -357,11 +420,15 @@ def main():
 
     log.info("Loading Whisper model...")
 
-    model = load_model(
-        model_config.name,
-        model_config.device,
-        model_config.compute_type,
-    )
+    try:
+        model, model_config = load_model(
+            model_config,
+            allow_cpu_fallback=allow_cpu_fallback,
+        )
+
+    except ModelError as e:
+        log.error("%s", e)
+        return 1
 
     log.info("Transcribing...")
 

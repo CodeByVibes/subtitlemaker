@@ -13,6 +13,10 @@ class _Formatter(logging.Formatter):
     def format(self, record):
         message = record.getMessage()
 
+        # Other libraries often write their own "Warning:" prefix.
+        if message.lower().startswith(("warning:", "error:")):
+            return message
+
         if record.levelno >= logging.ERROR:
             return f"Error: {message}"
 
