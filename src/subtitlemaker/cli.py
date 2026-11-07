@@ -9,6 +9,7 @@ from pathlib import Path
 from . import __version__
 from .config import DEVICES, ConfigError, load_config
 from .formats import DEFAULT_FORMAT, FORMATS, output_path, parse_formats
+from .languages import parse_language_argument
 from .log import LOGGER_NAME, setup_logging
 from .media import find_media, get_duration
 from .progress import TranscriptionProgress, format_time
@@ -218,15 +219,6 @@ def _process_file(model, input_file, outputs, options, console):
 
 
 def main():
-
-    # Imported here so --help and argument errors don't wait for the
-    # heavy machine learning libraries to load.
-    from .transcribe import (
-        ModelError,
-        load_model,
-        parse_language_argument,
-        resolve_model_config,
-    )
 
     parser = argparse.ArgumentParser(
         prog="subtitlemaker",
@@ -690,6 +682,10 @@ def main():
         # A GPU that turns out to be unusable only falls back to the CPU when
         # the device was left on auto.
         allow_cpu_fallback = model_config.device == "auto"
+
+        # Imported only now: loading the machine learning libraries is slow,
+        # and --help, --version and argument errors don't need them.
+        from .transcribe import ModelError, load_model, resolve_model_config
 
         try:
             model_config = resolve_model_config(model_config)

@@ -48,3 +48,25 @@ def test_unknown_model_is_reported_before_loading(monkeypatch, tmp_path, caplog)
 
     assert run(monkeypatch, str(media), "--model", "nonsense") == 1
     assert "unknown model" in caplog.text
+
+
+@pytest.mark.parametrize("flag", ["--help", "--version"])
+def test_help_and_version_do_not_load_the_machine_learning_libraries(flag):
+    import subprocess
+    import sys
+
+    code = (
+        "import sys\n"
+        "from subtitlemaker.cli import main\n"
+        f"sys.argv = ['subtitlemaker', '{flag}']\n"
+        "try:\n"
+        "    main()\n"
+        "except SystemExit:\n"
+        "    pass\n"
+        "heavy = [m for m in ('faster_whisper', 'ctranslate2', 'numpy') if m in sys.modules]\n"
+        "print('LOADED', heavy)\n"
+    )
+
+    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+
+    assert "LOADED []" in result.stdout, result.stdout + result.stderr

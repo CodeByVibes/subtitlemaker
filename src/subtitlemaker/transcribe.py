@@ -10,11 +10,7 @@ import numpy as np
 from faster_whisper import WhisperModel, available_models
 
 from ._cuda import preload_cuda_libs
-
-try:
-    from faster_whisper.tokenizer import _LANGUAGE_CODES
-except ImportError:
-    _LANGUAGE_CODES = None
+from .languages import parse_language_argument  # noqa: F401  (kept importable here)
 
 log = logging.getLogger(__name__)
 
@@ -225,47 +221,3 @@ def _warm_up(model):
         ctranslate2.StorageView.from_array(silence),
         to_cpu=True,
     )
-
-
-def parse_language_argument(value):
-    """
-    Parse the -l/--language argument.
-
-    Accepts a single language code ("he") or a comma or
-    space separated list of codes ("he,en") for audio that
-    contains more than one language.
-
-    Returns (languages, multilingual), where `multilingual`
-    is True when more than one code was given.
-    """
-
-    if not value:
-        return [], False
-
-    languages = []
-
-    for code in re.split(r"[,\s]+", value.strip()):
-
-        code = code.lower()
-
-        if not code:
-            continue
-
-        if code not in languages:
-            languages.append(code)
-
-    if _LANGUAGE_CODES is not None:
-
-        unknown = [
-            code
-            for code in languages
-            if code not in _LANGUAGE_CODES
-        ]
-
-        if unknown:
-            raise ValueError(
-                f"unknown language code(s): "
-                f"{', '.join(unknown)}"
-            )
-
-    return languages, len(languages) > 1
