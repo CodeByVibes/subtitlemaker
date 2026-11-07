@@ -6,6 +6,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import ctranslate2
+import numpy as np
 from faster_whisper import WhisperModel, available_models
 
 from ._cuda import preload_cuda_libs
@@ -176,10 +177,35 @@ def load_model(config, allow_cpu_fallback=False):
 
 
 def _create(config):
-    return WhisperModel(
+    model = WhisperModel(
         config.name,
         device=config.device,
         compute_type=config.compute_type,
+    )
+
+    if config.device == "cuda":
+        _warm_up(model)
+
+    return model
+
+
+def _warm_up(model):
+    """
+    Run one tiny encode on the GPU.
+
+    CTranslate2 loads cuBLAS and cuDNN lazily, so missing libraries (or too
+    little GPU memory) would otherwise only surface in the middle of the
+    first transcription. Raises RuntimeError in that case.
+    """
+
+    silence = np.zeros(
+        (1, model.model.n_mels, model.feature_extractor.nb_max_frames),
+        dtype=np.float32,
+    )
+
+    model.model.encode(
+        ctranslate2.StorageView.from_array(silence),
+        to_cpu=True,
     )
 
 

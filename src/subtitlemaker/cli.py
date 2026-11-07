@@ -459,22 +459,27 @@ def main():
 
     processed_segments = []
 
-    with TranscriptionProgress(
-        duration,
-        console,
-        enabled=not args.quiet,
-    ) as progress:
+    try:
+        with TranscriptionProgress(
+            duration,
+            console,
+            enabled=not args.quiet,
+        ) as progress:
 
-        for segment in segments:
+            for segment in segments:
 
-            processed_segments.append(
-                segment
-            )
+                processed_segments.append(
+                    segment
+                )
 
-            progress.update(float(segment.end))
+                progress.update(float(segment.end))
 
-        # Final progress
-        progress.update(duration)
+            # Final progress
+            progress.update(duration)
+
+    except RuntimeError as e:
+        log.error("transcription failed: %s", e)
+        return 1
 
     elapsed = (
         time.monotonic()
