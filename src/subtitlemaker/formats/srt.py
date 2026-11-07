@@ -1,5 +1,6 @@
 """SubRip (.srt) output."""
 
+from ._atomic import atomic_open
 from ._timestamp import format_timestamp
 
 
@@ -12,7 +13,7 @@ def format_srt_time(seconds):
 def write_srt(subtitles, path):
     """Write subtitle cues to `path` as SRT."""
 
-    with open(path, "w", encoding="utf-8") as f:
+    with atomic_open(path) as f:
 
         for index, subtitle in enumerate(subtitles, start=1):
 

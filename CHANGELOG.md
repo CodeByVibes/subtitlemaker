@@ -5,6 +5,7 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 ## [Unreleased]
 
 ### Fixed
+- Subtitle files are written to a temporary file and moved into place when complete, so a crash or full disk can no longer leave a truncated file that `--skip-existing` would treat as done. An existing file stays untouched if writing fails.
 - A config file with a section that is not a table (`style = 5`), an unreadable config file, or a folder given to `--config` now gives a usage error with the file name instead of a traceback.
 - `nan` and `inf` are rejected for the style values (`--max-cps nan` used to be accepted).
 - Ctrl-C stops with a short "interrupted" message and exit code 130 instead of a long traceback.

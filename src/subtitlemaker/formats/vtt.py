@@ -1,5 +1,6 @@
 """WebVTT (.vtt) output."""
 
+from ._atomic import atomic_open
 from ._timestamp import format_timestamp
 
 
@@ -18,7 +19,7 @@ def _escape(text):
 def write_vtt(subtitles, path):
     """Write subtitle cues to `path` as WebVTT."""
 
-    with open(path, "w", encoding="utf-8") as f:
+    with atomic_open(path) as f:
 
         f.write("WEBVTT\n\n")
 
