@@ -36,6 +36,11 @@ def test_defaults():
         {"max_duration": -1},
         {"min_gap": -0.1},
         {"min_duration": 8, "max_duration": 7},
+        {"max_cps": float("nan")},
+        {"max_cps": float("inf")},
+        {"max_pause": float("nan")},
+        {"min_gap": float("nan")},
+        {"max_duration": float("inf")},
     ],
 )
 def test_invalid_style_is_rejected(kwargs):
@@ -81,6 +86,7 @@ def test_integer_is_accepted_where_float_expected(tmp_path):
         ("[style]\nmin_duration = 9\n", "min_duration"),
         ('[model]\ndevice = "gpu"\n', "device must be one of"),
         ("x = [", "invalid TOML"),
+        ("[style]\nmax_cps = nan\n", "max_cps must be a finite"),
         ("style = 5\n", r"\[style\] must be a table"),
         ('model = "small"\n', r"\[model\] must be a table"),
     ],

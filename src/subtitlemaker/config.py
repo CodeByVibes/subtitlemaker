@@ -3,6 +3,7 @@
 Precedence, lowest to highest: built-in defaults, config file, command line.
 """
 
+import math
 import os
 import sys
 from dataclasses import dataclass, fields, replace
@@ -36,6 +37,11 @@ class SubtitleStyle:
 
         if self.max_lines not in (1, 2):
             raise ConfigError("max_lines must be 1 or 2")
+
+        # nan compares False with everything, so "<= 0" alone lets it through.
+        for name in ("max_cps", "min_duration", "max_duration", "max_pause", "min_gap"):
+            if not math.isfinite(getattr(self, name)):
+                raise ConfigError(f"{name} must be a finite number")
 
         for name in ("max_cps", "min_duration", "max_duration", "max_pause"):
             if getattr(self, name) <= 0:
