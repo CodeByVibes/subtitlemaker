@@ -6,7 +6,6 @@ import logging
 import time
 from pathlib import Path
 
-from ._cuda import reexec_with_cuda_libs
 from .config import ConfigError, load_config
 from .formats.srt import write_srt
 from .log import LOGGER_NAME, setup_logging
@@ -19,12 +18,12 @@ log = logging.getLogger(LOGGER_NAME)
 
 def main():
 
-    # Must happen before anything imports CTranslate2.
-    reexec_with_cuda_libs()
-
+    # Imported here so --help and argument errors don't wait for the
+    # heavy machine learning libraries to load.
     from .transcribe import load_model, parse_language_argument
 
     parser = argparse.ArgumentParser(
+        prog="subtitlemaker",
         description=(
             "Generate SRT subtitles "
             "using Faster-Whisper."

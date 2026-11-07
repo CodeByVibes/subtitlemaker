@@ -4,6 +4,8 @@ import re
 
 from faster_whisper import WhisperModel
 
+from ._cuda import preload_cuda_libs
+
 try:
     from faster_whisper.tokenizer import _LANGUAGE_CODES
 except ImportError:
@@ -12,6 +14,9 @@ except ImportError:
 
 def load_model(name, device, compute_type):
     """Load a faster-whisper model."""
+
+    if device == "cuda":
+        preload_cuda_libs()
 
     return WhisperModel(
         name,
