@@ -238,7 +238,8 @@ def main():
         return 130
 
 
-def _run():
+def _build_parser():
+    """The argument parser. Building it does no work and imports nothing heavy."""
 
     parser = argparse.ArgumentParser(
         prog="subtitlemaker",
@@ -512,16 +513,29 @@ def _run():
         help="Minimum gap between subtitles (default: 0.05)",
     )
 
-    args = parser.parse_args()
+    return parser
 
-    console = setup_logging(
-        quiet=args.quiet,
-        verbose=args.verbose,
-    )
 
-    # --------------------------------------------------------
-    # Settings: defaults < config file < command line
-    # --------------------------------------------------------
+@dataclasses.dataclass(frozen=True)
+class _Settings:
+    """Everything decided from the command line and config file, before any work."""
+
+    style: object
+    model_config: object
+    formats: list
+    languages: list
+    language_hint: object
+    multilingual: bool
+    condition_on_previous_text: bool
+
+
+def _resolve_settings(args, parser):
+    """
+    Combine defaults, the config file and the command line.
+
+    Precedence: defaults < config file < command line. Invalid values end
+    the program through `parser.error` (a usage error, exit code 2).
+    """
 
     try:
         style, model_config = load_config(args.config)
@@ -551,9 +565,7 @@ def _run():
     except ConfigError as e:
         parser.error(str(e))
 
-    # --------------------------------------------------------
     # Output options
-    # --------------------------------------------------------
 
     try:
         formats = parse_formats(args.format)
@@ -564,9 +576,7 @@ def _run():
     if args.output and args.output_dir:
         parser.error("-o/--output and -d/--output-dir cannot be combined")
 
-    # --------------------------------------------------------
     # Language options
-    # --------------------------------------------------------
 
     try:
         languages, listed_multilingual = (
@@ -622,24 +632,27 @@ def _run():
             and not multilingual
         )
 
-    # --------------------------------------------------------
-    # Inputs and where their outputs go
-    # --------------------------------------------------------
+    return _Settings(
+        style=style,
+        model_config=model_config,
+        formats=formats,
+        languages=languages,
+        language_hint=language_hint,
+        multilingual=multilingual,
+        condition_on_previous_text=condition_on_previous_text,
+    )
 
-    files, problems = _expand_inputs(args.inputs, args.recursive)
 
-    for problem in problems:
-        log.error("%s", problem)
+def _plan_all_outputs(files, args, formats):
+    """
+    Decide where every input's outputs go: `{input file: {format: path}}`.
 
-    if not files:
-
-        if not problems:
-            log.error("no media files to process")
-
-        return 1
+    Raises `ValueError` (with a user-facing message) if an output would
+    overwrite an input, or two inputs would write the same file.
+    """
 
     if args.output and len(files) > 1:
-        parser.error(
+        raise ValueError(
             "-o/--output can only be used with a single input file; "
             "use -d/--output-dir for several"
         )
@@ -656,18 +669,114 @@ def _run():
             key = path.resolve()
 
             if key in input_paths:
-                parser.error(
+                raise ValueError(
                     f"the output {path} is the input file {input_paths[key]}; "
                     f"it would be overwritten"
                 )
 
             if key in owners:
-                parser.error(
+                raise ValueError(
                     f"{owners[key]} and {file} would both write {path}; "
                     f"use separate output folders"
                 )
 
             owners[key] = file
+
+    return plan
+
+
+def _load_model_for_run(model_config, multilingual, task, style):
+    """
+    Resolve and load the model, logging what is used.
+
+    Returns `(model, config_used)`, or `None` after logging an error.
+    """
+
+    # A GPU that turns out to be unusable only falls back to the CPU when
+    # the device was left on auto.
+    allow_cpu_fallback = model_config.device == "auto"
+
+    # What the user asked for, before "auto" is resolved: a CPU fallback
+    # must not replace a model or compute type they chose.
+    requested_config = model_config
+
+    # Imported only now: loading the machine learning libraries is slow,
+    # and --help, --version and argument errors don't need them.
+    from .transcribe import ModelError, load_model, resolve_model_config
+
+    try:
+        model_config = resolve_model_config(model_config)
+
+    except ModelError as e:
+        log.error("%s", e)
+        return None
+
+    log.info("Model:          %s", model_config.name)
+    log.info("Device:         %s", model_config.device)
+    log.info("Compute type:   %s", model_config.compute_type)
+
+    if multilingual and task == "translate":
+        log.warning(
+            "task=translate turns every segment into English."
+        )
+
+    log.debug("Subtitle configuration:")
+    log.debug("  Max line length:  %s", style.max_line_length)
+    log.debug("  Max lines:        %s", style.max_lines)
+    log.debug("  Max CPS:          %g", style.max_cps)
+    log.debug("  Min duration:     %ss", style.min_duration)
+    log.debug("  Max duration:     %ss", style.max_duration)
+    log.debug("  Minimum gap:      %ss", style.min_gap)
+    log.debug("  Max pause:        %ss", style.max_pause)
+
+    log.info("Loading Whisper model...")
+
+    try:
+        return load_model(
+            model_config,
+            allow_cpu_fallback=allow_cpu_fallback,
+            requested=requested_config,
+        )
+
+    except ModelError as e:
+        log.error("%s", e)
+        return None
+
+
+def _run():
+
+    parser = _build_parser()
+
+    args = parser.parse_args()
+
+    console = setup_logging(
+        quiet=args.quiet,
+        verbose=args.verbose,
+    )
+
+    settings = _resolve_settings(args, parser)
+
+    # --------------------------------------------------------
+    # Inputs and where their outputs go
+    # --------------------------------------------------------
+
+    files, problems = _expand_inputs(args.inputs, args.recursive)
+
+    for problem in problems:
+        log.error("%s", problem)
+
+    if not files:
+
+        if not problems:
+            log.error("no media files to process")
+
+        return 1
+
+    try:
+        plan = _plan_all_outputs(files, args, settings.formats)
+
+    except ValueError as e:
+        parser.error(str(e))
 
     failed = len(problems)
     skipped = 0
@@ -699,64 +808,26 @@ def _run():
                 log.error("couldn't create output folder %s: %s", args.output_dir, e)
                 return 1
 
-        # A GPU that turns out to be unusable only falls back to the CPU when
-        # the device was left on auto.
-        allow_cpu_fallback = model_config.device == "auto"
+        loaded = _load_model_for_run(
+            settings.model_config,
+            settings.multilingual,
+            args.task,
+            settings.style,
+        )
 
-        # What the user asked for, before "auto" is resolved: a CPU fallback
-        # must not replace a model or compute type they chose.
-        requested_config = model_config
-
-        # Imported only now: loading the machine learning libraries is slow,
-        # and --help, --version and argument errors don't need them.
-        from .transcribe import ModelError, load_model, resolve_model_config
-
-        try:
-            model_config = resolve_model_config(model_config)
-
-        except ModelError as e:
-            log.error("%s", e)
+        if loaded is None:
             return 1
 
-        log.info("Model:          %s", model_config.name)
-        log.info("Device:         %s", model_config.device)
-        log.info("Compute type:   %s", model_config.compute_type)
-
-        if multilingual and args.task == "translate":
-            log.warning(
-                "task=translate turns every segment into English."
-            )
-
-        log.debug("Subtitle configuration:")
-        log.debug("  Max line length:  %s", style.max_line_length)
-        log.debug("  Max lines:        %s", style.max_lines)
-        log.debug("  Max CPS:          %g", style.max_cps)
-        log.debug("  Min duration:     %ss", style.min_duration)
-        log.debug("  Max duration:     %ss", style.max_duration)
-        log.debug("  Minimum gap:      %ss", style.min_gap)
-        log.debug("  Max pause:        %ss", style.max_pause)
-
-        log.info("Loading Whisper model...")
-
-        try:
-            model, model_config = load_model(
-                model_config,
-                allow_cpu_fallback=allow_cpu_fallback,
-                requested=requested_config,
-            )
-
-        except ModelError as e:
-            log.error("%s", e)
-            return 1
+        model, model_config = loaded
 
         options = _Options(
-            style=style,
+            style=settings.style,
             model_config=model_config,
             task=args.task,
-            languages=languages,
-            language_hint=language_hint,
-            multilingual=multilingual,
-            condition_on_previous_text=condition_on_previous_text,
+            languages=settings.languages,
+            language_hint=settings.language_hint,
+            multilingual=settings.multilingual,
+            condition_on_previous_text=settings.condition_on_previous_text,
             detect_segments=args.detect_segments,
             detect_threshold=args.detect_threshold,
             quiet=args.quiet,
