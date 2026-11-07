@@ -68,7 +68,9 @@ def setup_logging(quiet=False, verbose=False):
     handler.setFormatter(_Formatter())
 
     root = logging.getLogger()
-    root.handlers[:] = [handler]
+    # Replace only our own handler from an earlier call, never other people's.
+    root.handlers[:] = [h for h in root.handlers if not isinstance(h, _ConsoleHandler)]
+    root.addHandler(handler)
     root.setLevel(logging.WARNING)
 
     if quiet:
