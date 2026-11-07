@@ -1,0 +1,84 @@
+1
+00:00:00,900 --> 00:00:02,400
+Good morning everyone.
+
+2
+00:00:04,600 --> 00:00:05,450
+Yes.
+
+3
+00:00:05,500 --> 00:00:07,567
+I really think we should start.
+
+4
+00:00:09,000 --> 00:00:09,350
+Right.
+
+5
+00:00:09,400 --> 00:00:12,540
+so what we are going to do today
+
+6
+00:00:12,600 --> 00:00:15,340
+is look at how the whole system
+
+7
+00:00:15,400 --> 00:00:17,740
+fits together and why each part
+
+8
+00:00:17,800 --> 00:00:19,300
+matters
+
+9
+00:00:20,000 --> 00:00:22,340
+We waited for the answer and
+
+10
+00:00:24,900 --> 00:00:26,840
+then it finally came back
+
+11
+00:00:33,000 --> 00:00:35,236
+This segment has no word level
+
+12
+00:00:35,286 --> 00:00:37,217
+timing so its long text is
+
+13
+00:00:37,267 --> 00:00:39,579
+shared out by length across the
+
+14
+00:00:39,629 --> 00:00:41,129
+cues that it needs
+
+15
+00:00:43,000 --> 00:00:44,700
+The first speaker is still
+
+16
+00:00:44,750 --> 00:00:44,950
+talking here.
+
+17
+00:00:45,000 --> 00:00:46,533
+Sorry to interrupt you.
+
+18
+00:00:50,000 --> 00:00:51,750
+Jag litar inte riktigt på dig,
+
+19
+00:00:51,800 --> 00:00:53,555
+men nu gör vi det här.
+
+20
+00:00:56,000 --> 00:00:57,540
+שלום, מה שלומך היום?
+
+21
+00:01:00,000 --> 00:01:01,867
+Thank you all for listening.
+

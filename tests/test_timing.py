@@ -127,3 +127,11 @@ def test_one_line_style_never_produces_two_lines(segment):
 def test_only_one_or_two_lines_are_supported(lines):
     with pytest.raises(ConfigError, match="max_lines"):
         SubtitleStyle(max_lines=lines)
+
+
+def test_a_cue_is_never_shown_for_less_than_a_tenth_of_a_second(segment):
+    # The second line is spoken before the first has had any time on screen.
+    cues = build_subtitles([segment("One.", 0.0, 1.0), segment("Two.", 0.02, 1.0)], STYLE)
+
+    assert cues[0]["end"] - cues[0]["start"] == pytest.approx(0.1)
+    assert cues[1]["start"] == pytest.approx(cues[0]["end"] + STYLE.min_gap)

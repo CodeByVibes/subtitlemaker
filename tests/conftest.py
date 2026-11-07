@@ -1,8 +1,11 @@
 """Shared test helpers."""
 
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+
+FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 
 def make_segment(text, start, end, words=None):

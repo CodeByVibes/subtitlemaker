@@ -1,0 +1,60 @@
+1
+00:00:00,900 --> 00:00:02,000
+Good morning everyone.
+
+2
+00:00:04,600 --> 00:00:05,450
+Yes.
+
+3
+00:00:05,500 --> 00:00:07,547
+I really think we should start.
+
+4
+00:00:09,000 --> 00:00:09,350
+Right.
+
+5
+00:00:09,400 --> 00:00:16,400
+so what we are going to do today is look
+at how the whole system fits together and
+
+6
+00:00:16,600 --> 00:00:18,140
+why each part matters
+
+7
+00:00:20,000 --> 00:00:26,840
+We waited for the answer and
+then it finally came back
+
+8
+00:00:33,000 --> 00:00:38,782
+This segment has no word level timing
+so its long text is shared out by length
+
+9
+00:00:38,832 --> 00:00:41,000
+across the cues that it needs
+
+10
+00:00:43,000 --> 00:00:44,950
+The first speaker is still talking here.
+
+11
+00:00:45,000 --> 00:00:46,348
+Sorry to interrupt you.
+
+12
+00:00:50,000 --> 00:00:53,555
+Jag litar inte riktigt på dig,
+men nu gör vi det här.
+
+13
+00:00:56,000 --> 00:00:57,540
+שלום, מה שלומך היום?
+
+14
+00:01:00,000 --> 00:01:01,698
+Thank you all for listening.
+
