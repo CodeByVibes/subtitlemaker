@@ -236,3 +236,25 @@ def test_output_may_not_overwrite_another_input_via_a_different_spelling(run, fa
 
     assert exit_info.value.code == 2
     assert notes.read_bytes() == b"mine"
+
+
+def test_verbose_shows_the_traceback_of_a_failed_file(run, fake_model, library, capsys):
+    fake_model.fail["a.mp3"] = RuntimeError("boom")
+
+    assert run(library / "a.mp3", "-v") == 1
+
+    err = capsys.readouterr().err
+
+    assert "Traceback" in err
+    assert "RuntimeError: boom" in err
+
+
+def test_without_verbose_there_is_no_traceback(run, fake_model, library, capsys):
+    fake_model.fail["a.mp3"] = RuntimeError("boom")
+
+    assert run(library / "a.mp3") == 1
+
+    err = capsys.readouterr().err
+
+    assert "failed to process" in err
+    assert "Traceback" not in err

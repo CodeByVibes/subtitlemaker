@@ -11,6 +11,20 @@ class _Formatter(logging.Formatter):
     """Plain messages, with a prefix for warnings and errors."""
 
     def format(self, record):
+        message = self._prefixed(record)
+
+        # Tracebacks (from `exc_info=True`) and stack traces are what a bug
+        # report needs, so they must not be dropped.
+        if record.exc_info:
+            message += "\n" + self.formatException(record.exc_info)
+
+        if record.stack_info:
+            message += "\n" + self.formatStack(record.stack_info)
+
+        return message
+
+    @staticmethod
+    def _prefixed(record):
         message = record.getMessage()
 
         # Other libraries often write their own "Warning:" prefix.
