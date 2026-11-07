@@ -6,6 +6,7 @@ import logging
 import time
 from pathlib import Path
 
+from . import __version__
 from .config import DEVICES, ConfigError, load_config
 from .formats import DEFAULT_FORMAT, FORMATS, output_path, parse_formats
 from .log import LOGGER_NAME, setup_logging
@@ -229,9 +230,15 @@ def main():
     parser = argparse.ArgumentParser(
         prog="subtitlemaker",
         description=(
-            "Generate SRT subtitles "
-            "using Faster-Whisper."
+            "Generate subtitles (SRT, WebVTT or plain text) "
+            "from audio and video files using Faster-Whisper."
         )
+    )
+
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {__version__}",
     )
 
     parser.add_argument(
@@ -320,10 +327,10 @@ def main():
             "transcribe",
             "translate",
         ],
-        default="translate",
+        default="transcribe",
         help=(
-            "transcribe = keep original "
-            "language; translate = English"
+            "transcribe = subtitles in the spoken language; "
+            "translate = translate to English (default: transcribe)"
         ),
     )
 

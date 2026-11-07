@@ -50,3 +50,23 @@ def test_output_option_and_style_flags_are_applied(run, fake_model, media, tmp_p
 def test_unwritable_output_is_reported(run, fake_model, media, tmp_path, caplog):
     assert run(str(media), "-q", "-o", str(tmp_path / "no" / "dir.srt")) == 1
     assert "couldn't write" in caplog.text
+
+
+def test_default_task_keeps_the_spoken_language(run, fake_model, media):
+    run(media, "-q")
+
+    assert fake_model.calls[0]["task"] == "transcribe"
+
+
+def test_translate_task_is_opt_in(run, fake_model, media):
+    run(media, "-q", "-t", "translate")
+
+    assert fake_model.calls[0]["task"] == "translate"
+
+
+def test_version_flag(run, capsys):
+    with pytest.raises(SystemExit) as exit_info:
+        run("--version")
+
+    assert exit_info.value.code == 0
+    assert capsys.readouterr().out.strip() == "subtitlemaker 0.1.0"
