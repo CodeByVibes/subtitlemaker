@@ -104,6 +104,9 @@ def load_config(path=None):
     path = Path(path) if explicit else default_config_path()
 
     if not path.is_file():
+        if explicit and path.exists():
+            raise ConfigError(f"config path is not a file: {path}")
+
         if explicit:
             raise ConfigError(f"config file not found: {path}")
 
@@ -116,6 +119,9 @@ def load_config(path=None):
     except tomllib.TOMLDecodeError as e:
         raise ConfigError(f"{path}: invalid TOML: {e}") from e
 
+    except OSError as e:
+        raise ConfigError(f"couldn't read config file {path}: {e.strerror or e}") from e
+
     unknown_sections = sorted(set(data) - set(_SECTIONS))
 
     if unknown_sections:
@@ -125,6 +131,12 @@ def load_config(path=None):
 
     for section, cls in _SECTIONS.items():
         values = data.get(section, {})
+
+        if not isinstance(values, dict):
+            raise ConfigError(
+                f"{path}: [{section}] must be a table, got {type(values).__name__}"
+            )
+
         allowed = {f.name: f for f in fields(cls)}
         unknown = sorted(set(values) - set(allowed))
 

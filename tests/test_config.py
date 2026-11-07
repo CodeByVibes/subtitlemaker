@@ -1,3 +1,5 @@
+import os
+
 import pytest
 
 from subtitlemaker.config import (
@@ -79,6 +81,8 @@ def test_integer_is_accepted_where_float_expected(tmp_path):
         ("[style]\nmin_duration = 9\n", "min_duration"),
         ('[model]\ndevice = "gpu"\n', "device must be one of"),
         ("x = [", "invalid TOML"),
+        ("style = 5\n", r"\[style\] must be a table"),
+        ('model = "small"\n', r"\[model\] must be a table"),
     ],
 )
 def test_bad_files_give_clear_errors(tmp_path, text, message):
@@ -104,3 +108,21 @@ def test_default_location_follows_xdg(tmp_path, monkeypatch):
 
     assert default_config_path() == tmp_path / "subtitlemaker" / "config.toml"
     assert load_config()[0].max_lines == 1
+
+
+def test_explicit_directory_is_not_reported_as_missing(tmp_path):
+    with pytest.raises(ConfigError, match="not a file"):
+        load_config(tmp_path)
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root can read anything")
+def test_unreadable_file_is_a_config_error(tmp_path):
+    path = write(tmp_path, "[style]\nmax_lines = 1\n")
+    path.chmod(0)
+
+    try:
+        with pytest.raises(ConfigError, match="couldn't read config file"):
+            load_config(path)
+
+    finally:
+        path.chmod(0o600)
