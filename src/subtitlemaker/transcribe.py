@@ -90,7 +90,13 @@ def resolve_model_config(config, cuda=None):
     elif name not in available_models() and not Path(name).exists():
 
         if _REPO_ID.fullmatch(name):
-            pass  # a Hugging Face repo id, downloaded on first use
+
+            # "models/mine" looks like a repo id, but if "models" is a
+            # folder here, a mistyped path is far more likely.
+            if Path(name.split("/")[0]).is_dir():
+                raise ModelError(f"model path not found: {name}")
+
+            # otherwise a Hugging Face repo id, downloaded on first use
 
         elif "/" in name or name.startswith("."):
             raise ModelError(f"model path not found: {name}")
@@ -139,10 +145,12 @@ def load_model(config, allow_cpu_fallback=False):
     try:
         return _create(config), config
 
-    except RuntimeError as e:
+    except Exception as e:
 
-        if config.device != "cuda":
-            raise ModelError(f"couldn't load model '{config.name}': {e}") from e
+        # Hugging Face raises its own types (offline, unknown repo, bad id),
+        # so only a RuntimeError on the GPU is treated as a CUDA problem.
+        if config.device != "cuda" or not isinstance(e, RuntimeError):
+            raise _load_error(config.name, e) from e
 
         if not allow_cpu_fallback:
             raise ModelError(
@@ -172,8 +180,18 @@ def load_model(config, allow_cpu_fallback=False):
         try:
             return _create(fallback), fallback
 
-        except RuntimeError as e2:
-            raise ModelError(f"couldn't load model '{fallback.name}': {e2}") from e2
+        except Exception as e2:
+            raise _load_error(fallback.name, e2) from e2
+
+
+def _load_error(name, error):
+    """A `ModelError` for any failure to create a model, with a hint."""
+
+    return ModelError(
+        f"couldn't load model '{name}': {error}\n"
+        f"Models are downloaded on first use and need an internet "
+        f"connection. Check the model name or path."
+    )
 
 
 def _create(config):

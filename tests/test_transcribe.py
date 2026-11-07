@@ -98,3 +98,77 @@ def test_parse_language_argument(value, expected):
 def test_unknown_language_is_rejected():
     with pytest.raises(ValueError, match="zz"):
         parse_language_argument("en,zz")
+
+
+def test_a_folder_prefix_means_a_mistyped_path_not_a_hub_id(tmp_path, monkeypatch):
+    (tmp_path / "models").mkdir()
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(ModelError, match="path not found"):
+        resolve_model_config(ModelConfig(name="models/mine"), cuda=False)
+
+
+# --- loading failures --------------------------------------------------------
+
+
+def _hub_errors():
+    from huggingface_hub.errors import LocalEntryNotFoundError
+
+    return [
+        LocalEntryNotFoundError("offline"),
+        ConnectionError("no route to host"),
+        ValueError("bad id"),
+        OSError("disk"),
+        RuntimeError("broken"),
+    ]
+
+
+@pytest.mark.parametrize("error", _hub_errors(), ids=lambda e: type(e).__name__)
+def test_any_load_failure_on_the_cpu_is_a_model_error(monkeypatch, error):
+    from subtitlemaker import transcribe
+
+    def fail(config):
+        raise error
+
+    monkeypatch.setattr(transcribe, "_create", fail)
+
+    with pytest.raises(ModelError, match="need an internet connection") as info:
+        transcribe.load_model(ModelConfig(name="x/y", device="cpu", compute_type="int8"))
+
+    assert str(error) in str(info.value)
+
+
+def test_a_non_runtime_error_on_cuda_is_not_mistaken_for_a_cuda_problem(monkeypatch):
+    from subtitlemaker import transcribe
+
+    monkeypatch.setattr(transcribe, "preload_cuda_libs", lambda: None)
+
+    def fail(config):
+        raise ValueError("bad id")
+
+    monkeypatch.setattr(transcribe, "_create", fail)
+
+    with pytest.raises(ModelError) as info:
+        transcribe.load_model(
+            ModelConfig(name="x/y", device="cuda", compute_type="float16"),
+            allow_cpu_fallback=True,
+        )
+
+    assert "CUDA" not in str(info.value)
+
+
+def test_a_failing_cpu_fallback_is_a_model_error(monkeypatch):
+    from subtitlemaker import transcribe
+
+    monkeypatch.setattr(transcribe, "preload_cuda_libs", lambda: None)
+
+    def fail(config):
+        raise RuntimeError("cuda") if config.device == "cuda" else ValueError("offline")
+
+    monkeypatch.setattr(transcribe, "_create", fail)
+
+    with pytest.raises(ModelError, match="offline"):
+        transcribe.load_model(
+            ModelConfig(name="large-v3", device="cuda", compute_type="float16"),
+            allow_cpu_fallback=True,
+        )
