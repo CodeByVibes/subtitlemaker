@@ -9,6 +9,8 @@ authors = [{ name = "Johan Isevind", email = "codebyvibes@isevind.se" }]
 requires-python = ">=3.10"
 dependencies = [
     "faster-whisper>=1.2.1",
+    "ctranslate2>=4.6,<5",
+    "numpy>=1.22",
     "av>=13,<17",
     "rich>=13",
     "tomli>=2; python_version < '3.11'",

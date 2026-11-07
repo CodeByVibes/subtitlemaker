@@ -945,7 +945,11 @@ name = "subtitlemaker"
 source = { editable = "." }
 dependencies = [
     { name = "av" },
+    { name = "ctranslate2" },
     { name = "faster-whisper" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.11.*'" },
+    { name = "numpy", version = "2.5.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "rich" },
     { name = "tomli", marker = "python_full_version < '3.11'" },
 ]
@@ -965,7 +969,9 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "av", specifier = ">=13,<17" },
+    { name = "ctranslate2", specifier = ">=4.6,<5" },
     { name = "faster-whisper", specifier = ">=1.2.1" },
+    { name = "numpy", specifier = ">=1.22" },
     { name = "nvidia-cublas-cu12", marker = "extra == 'cuda'" },
     { name = "nvidia-cudnn-cu12", marker = "extra == 'cuda'", specifier = "==9.*" },
     { name = "rich", specifier = ">=13" },

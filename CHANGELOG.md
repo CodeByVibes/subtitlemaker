@@ -15,6 +15,7 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 - A model that cannot be downloaded or loaded (no internet on first use, a mistyped repo id, a bad path) now ends in a short error with a hint instead of a traceback. A name such as `models/mine`, where `models` is a local folder, is reported as "model path not found" rather than looked up on Hugging Face.
 
 ### Changed
+- `ctranslate2` (4.6 up to, not including, 5) and `numpy` (1.22 or newer) are now declared dependencies. The code imports them directly, so they no longer depend on faster-whisper pulling them in. Earlier ctranslate2 builds need an executable stack and fail to load on current Linux systems.
 - `-l he,en` only switches on per-segment language detection, exactly like `-m`; it never limited detection to the listed languages. The log line, `--help` and the README now say so.
 - `--help` and `--version` no longer load faster-whisper and ctranslate2, so they are faster and still work if those libraries are broken.
 
