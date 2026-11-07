@@ -5,6 +5,11 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 ## [Unreleased]
 
 ### Fixed
+- A config file with a section that is not a table (`style = 5`), an unreadable config file, or a folder given to `--config` now gives a usage error with the file name instead of a traceback.
+- `nan` and `inf` are rejected for the style values (`--max-cps nan` used to be accepted).
+- Ctrl-C stops with a short "interrupted" message and exit code 130 instead of a long traceback.
+- When the GPU cannot be used and the CPU takes over, a model or compute type you chose yourself is kept. Only values left on auto are swapped for CPU defaults. A chosen compute type the CPU cannot run is reported as such.
+- Folder scans skip macOS `._name.mp4` companion files, and an unreadable folder is reported as an error (exit code 1) while the other inputs still run.
 - `-v` now shows the traceback of a failed file. The log formatter used to drop it, so `-v` output was no use in a bug report.
 - A model that cannot be downloaded or loaded (no internet on first use, a mistyped repo id, a bad path) now ends in a short error with a hint instead of a traceback. A name such as `models/mine`, where `models` is a local folder, is reported as "model path not found" rather than looked up on Hugging Face.
 

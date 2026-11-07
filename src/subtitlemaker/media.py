@@ -44,12 +44,20 @@ MEDIA_EXTENSIONS = frozenset(
 
 
 def find_media(directory, recursive=False):
-    """The media files in `directory`, sorted by path."""
+    """
+    The media files in `directory`, sorted by path.
+
+    Skips macOS "AppleDouble" companions (`._name.mp4`), which have a media
+    extension but are metadata, not media. Raises `OSError` if the folder
+    cannot be read.
+    """
 
     candidates = directory.rglob("*") if recursive else directory.iterdir()
 
     return sorted(
         path
         for path in candidates
-        if path.suffix.lower() in MEDIA_EXTENSIONS and path.is_file()
+        if path.suffix.lower() in MEDIA_EXTENSIONS
+        and not path.name.startswith("._")
+        and path.is_file()
     )

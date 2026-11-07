@@ -39,11 +39,13 @@ def _expand_inputs(inputs, recursive):
     Turn the command line inputs into a list of media files.
 
     Folders contribute the media files in them (and in sub folders with
-    `recursive`). Returns `(files, missing)`; duplicates are dropped.
+    `recursive`). Returns `(files, problems)`, where `problems` holds a
+    message for each input that does not exist or cannot be read;
+    duplicates are dropped.
     """
 
     files = []
-    missing = []
+    problems = []
     seen = set()
 
     for raw in inputs:
@@ -51,7 +53,13 @@ def _expand_inputs(inputs, recursive):
         path = Path(raw)
 
         if path.is_dir():
-            found = find_media(path, recursive)
+
+            try:
+                found = find_media(path, recursive)
+
+            except OSError as e:
+                problems.append(f"couldn't read folder {path}: {e.strerror or e}")
+                continue
 
             if not found:
                 log.warning("no media files found in %s", path)
@@ -60,7 +68,7 @@ def _expand_inputs(inputs, recursive):
             found = [path]
 
         else:
-            missing.append(path)
+            problems.append(f"input file does not exist: {path}")
             continue
 
         for file in found:
@@ -71,7 +79,7 @@ def _expand_inputs(inputs, recursive):
                 seen.add(key)
                 files.append(file)
 
-    return files, missing
+    return files, problems
 
 
 def _plan_outputs(input_file, args, formats):
@@ -618,14 +626,14 @@ def _run():
     # Inputs and where their outputs go
     # --------------------------------------------------------
 
-    files, missing = _expand_inputs(args.inputs, args.recursive)
+    files, problems = _expand_inputs(args.inputs, args.recursive)
 
-    for path in missing:
-        log.error("input file does not exist: %s", path)
+    for problem in problems:
+        log.error("%s", problem)
 
     if not files:
 
-        if not missing:
+        if not problems:
             log.error("no media files to process")
 
         return 1
@@ -661,7 +669,7 @@ def _run():
 
             owners[key] = file
 
-    failed = len(missing)
+    failed = len(problems)
     skipped = 0
     todo = []
 

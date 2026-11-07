@@ -1,5 +1,7 @@
 """Several inputs, several formats, and what happens when things go wrong."""
 
+import os
+
 import pytest
 
 
@@ -290,3 +292,32 @@ def test_the_load_gets_the_settings_as_the_user_gave_them(run, fake_model, libra
     assert fake_model.requested.name == "tiny"
     assert fake_model.requested.device == "auto"
     assert fake_model.requested.compute_type == "auto"
+
+
+def test_macos_resource_fork_files_are_not_picked_up(run, fake_model, library):
+    (library / "._a.mp3").write_bytes(b"")
+
+    assert run(library, "-q") == 0
+
+    assert sorted(c["name"] for c in fake_model.calls) == ["a.mp3", "b.mp4"]
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root can read anything")
+def test_an_unreadable_folder_is_an_error_and_the_rest_still_run(
+    run, fake_model, library, tmp_path, capsys
+):
+    locked = tmp_path / "locked"
+    locked.mkdir()
+    locked.chmod(0)
+
+    try:
+        assert run(locked, library / "a.mp3", "-q") == 1
+
+    finally:
+        locked.chmod(0o700)
+
+    err = capsys.readouterr().err
+
+    assert "couldn't read folder" in err
+    assert "Traceback" not in err
+    assert (library / "a.srt").exists()
