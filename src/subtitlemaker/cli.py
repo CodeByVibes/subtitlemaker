@@ -695,6 +695,10 @@ def _run():
         # the device was left on auto.
         allow_cpu_fallback = model_config.device == "auto"
 
+        # What the user asked for, before "auto" is resolved: a CPU fallback
+        # must not replace a model or compute type they chose.
+        requested_config = model_config
+
         # Imported only now: loading the machine learning libraries is slow,
         # and --help, --version and argument errors don't need them.
         from .transcribe import ModelError, load_model, resolve_model_config
@@ -730,6 +734,7 @@ def _run():
             model, model_config = load_model(
                 model_config,
                 allow_cpu_fallback=allow_cpu_fallback,
+                requested=requested_config,
             )
 
         except ModelError as e:

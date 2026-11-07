@@ -64,8 +64,9 @@ def fake_model(monkeypatch):
     model = FakeModel()
     model.loads = 0
 
-    def fake_load_model(config, allow_cpu_fallback=False):
+    def fake_load_model(config, allow_cpu_fallback=False, requested=None):
         model.loads += 1
+        model.requested = requested
         return model, config
 
     monkeypatch.setattr(transcribe, "load_model", fake_load_model)

@@ -282,3 +282,11 @@ def test_ctrl_c_stops_quietly_with_exit_code_130(run, fake_model, library, capsy
     # the batch stops: b.mp4 is not processed and nothing is half-written
     assert not (library / "b.srt").exists()
     assert not (library / "a.srt").exists()
+
+
+def test_the_load_gets_the_settings_as_the_user_gave_them(run, fake_model, library):
+    assert run(library / "a.mp3", "-q", "--model", "tiny") == 0
+
+    assert fake_model.requested.name == "tiny"
+    assert fake_model.requested.device == "auto"
+    assert fake_model.requested.compute_type == "auto"

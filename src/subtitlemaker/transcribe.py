@@ -126,13 +126,18 @@ def resolve_model_config(config, cuda=None):
     )
 
 
-def load_model(config, allow_cpu_fallback=False):
+def load_model(config, allow_cpu_fallback=False, requested=None):
     """
     Load the model described by a resolved `ModelConfig`.
 
     Returns `(model, config_used)`. With `allow_cpu_fallback`, a CUDA
     failure (typically missing CUDA libraries) falls back to the CPU with
     a warning instead of failing; the returned config shows what was used.
+
+    `requested` is the config as the user gave it, before "auto" was
+    resolved. On a fallback, the model and compute type are only swapped
+    for CPU defaults where the user left them on "auto"; without it,
+    everything is treated as automatic.
     """
 
     if config.device == "cuda":
@@ -156,18 +161,29 @@ def load_model(config, allow_cpu_fallback=False):
         log.warning("CUDA could not be used (%s)", e)
         log.warning(CUDA_HINT)
 
-        # The CUDA defaults no longer fit: pick CPU ones unless the user
-        # chose the model or compute type themselves.
+        # The CUDA defaults no longer fit: pick CPU ones, but never override
+        # what the user chose themselves.
+        name_is_auto = requested is None or requested.name == "auto"
+        compute_is_auto = requested is None or requested.compute_type == "auto"
+
         fallback = replace(
             config,
             device="cpu",
-            name=(
-                DEFAULT_MODEL["cpu"]
-                if config.name == DEFAULT_MODEL["cuda"]
-                else config.name
+            name=DEFAULT_MODEL["cpu"] if name_is_auto else config.name,
+            compute_type=(
+                DEFAULT_COMPUTE_TYPE["cpu"] if compute_is_auto else config.compute_type
             ),
-            compute_type=DEFAULT_COMPUTE_TYPE["cpu"],
         )
+
+        if not compute_is_auto:
+            supported = ctranslate2.get_supported_compute_types("cpu")
+
+            if fallback.compute_type not in supported:
+                raise ModelError(
+                    f"couldn't start CUDA: {e}\n{CUDA_HINT}\n"
+                    f"The CPU can't be used instead because compute type "
+                    f"'{fallback.compute_type}' is not supported there."
+                ) from e
 
         log.warning(
             "falling back to the CPU with model '%s'.", fallback.name

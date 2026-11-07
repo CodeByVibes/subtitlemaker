@@ -172,3 +172,76 @@ def test_a_failing_cpu_fallback_is_a_model_error(monkeypatch):
             ModelConfig(name="large-v3", device="cuda", compute_type="float16"),
             allow_cpu_fallback=True,
         )
+
+
+# --- CPU fallback keeps what the user chose ------------------------------------
+
+
+def _cuda_fails(monkeypatch):
+    from subtitlemaker import transcribe
+
+    created = []
+
+    def create(config):
+        if config.device == "cuda":
+            raise RuntimeError("no cublas")
+
+        created.append(config)
+        return object()
+
+    monkeypatch.setattr(transcribe, "preload_cuda_libs", lambda: None)
+    monkeypatch.setattr(transcribe, "_create", create)
+
+    return created
+
+
+def test_fallback_uses_cpu_defaults_when_everything_was_automatic(monkeypatch):
+    from subtitlemaker import transcribe
+
+    created = _cuda_fails(monkeypatch)
+    resolved = ModelConfig(name="large-v3", device="cuda", compute_type="float16")
+
+    _, used = transcribe.load_model(resolved, allow_cpu_fallback=True, requested=ModelConfig())
+
+    assert (used.device, used.name, used.compute_type) == ("cpu", "small", "int8")
+    assert created == [used]
+
+
+def test_fallback_keeps_an_explicitly_chosen_model(monkeypatch):
+    from subtitlemaker import transcribe
+
+    _cuda_fails(monkeypatch)
+    resolved = ModelConfig(name="large-v3", device="cuda", compute_type="float16")
+    requested = ModelConfig(name="large-v3")
+
+    _, used = transcribe.load_model(resolved, allow_cpu_fallback=True, requested=requested)
+
+    assert used.name == "large-v3"
+    assert used.compute_type == "int8"
+
+
+def test_fallback_keeps_an_explicitly_chosen_compute_type(monkeypatch):
+    from subtitlemaker import transcribe
+
+    _cuda_fails(monkeypatch)
+    resolved = ModelConfig(name="large-v3", device="cuda", compute_type="int8_float32")
+    requested = ModelConfig(compute_type="int8_float32")
+
+    _, used = transcribe.load_model(resolved, allow_cpu_fallback=True, requested=requested)
+
+    assert used.compute_type == "int8_float32"
+    assert used.name == "small"
+
+
+def test_fallback_refuses_a_compute_type_the_cpu_cannot_run(monkeypatch):
+    from subtitlemaker import transcribe
+
+    _cuda_fails(monkeypatch)
+    monkeypatch.setattr(
+        transcribe.ctranslate2, "get_supported_compute_types", lambda device: {"int8", "float32"}
+    )
+    resolved = ModelConfig(name="large-v3", device="cuda", compute_type="float16")
+    requested = ModelConfig(compute_type="float16")
+
+    with pytest.raises(ModelError, match="float16.*not supported"):
+        transcribe.load_model(resolved, allow_cpu_fallback=True, requested=requested)
