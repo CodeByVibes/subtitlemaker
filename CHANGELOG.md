@@ -4,6 +4,14 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-07
+
+### Fixed
+- A subtitle could contain words that are spoken many seconds apart. Whisper sometimes puts words on either side of a long silence (a laugh track, music) into one segment, and the subtitle then showed the later words long before they were spoken. On a two minute sitcom clip, four subtitles were affected, the worst with an 11.6 second gap. A long silence between two words now starts a new subtitle.
+
+### Added
+- `--max-pause` (and `max_pause` in the `[style]` section of the config file): how much silence between two words starts a new subtitle. The default is 1.0 seconds. This only applies with word timestamps, which are on by default.
+
 ## [0.1.0] - 2026-11-07
 
 First public release. It grew out of a single prototype script.
@@ -29,5 +37,6 @@ First public release. It grew out of a single prototype script.
 - The GPU libraries are loaded without re-launching the Python process, so `python -m subtitlemaker` works.
 - A GPU without the CUDA 12 libraries no longer ends in a traceback in the middle of a run.
 
-[Unreleased]: https://github.com/CodeByVibes/subtitlemaker/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/CodeByVibes/subtitlemaker/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/CodeByVibes/subtitlemaker/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/CodeByVibes/subtitlemaker/releases/tag/v0.1.0
