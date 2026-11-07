@@ -28,6 +28,7 @@ class SubtitleStyle:
     min_duration: float = 1.0  # Minimum subtitle duration (seconds)
     max_duration: float = 7.0  # Maximum subtitle duration (seconds)
     min_gap: float = 0.05  # Minimum gap between subtitles (seconds)
+    max_pause: float = 1.0  # Silence between two words that starts a new subtitle (seconds)
 
     def __post_init__(self):
         if not isinstance(self.max_line_length, int) or self.max_line_length < 1:
@@ -36,7 +37,7 @@ class SubtitleStyle:
         if self.max_lines not in (1, 2):
             raise ConfigError("max_lines must be 1 or 2")
 
-        for name in ("max_cps", "min_duration", "max_duration"):
+        for name in ("max_cps", "min_duration", "max_duration", "max_pause"):
             if getattr(self, name) <= 0:
                 raise ConfigError(f"{name} must be greater than 0")
 

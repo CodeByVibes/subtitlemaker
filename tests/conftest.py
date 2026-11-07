@@ -38,6 +38,7 @@ class FakeModel:
     def __init__(self):
         self.calls = []
         self.fail = {}  # file name -> exception to raise
+        self.segments = None  # segments to return instead of the default
 
     def transcribe(self, path, **kwargs):
         name = Path(path).name
@@ -45,6 +46,9 @@ class FakeModel:
 
         if name in self.fail:
             raise self.fail[name]
+
+        if self.segments is not None:
+            return iter(self.segments), SimpleNamespace(language="en", language_probability=0.99)
 
         words = [make_word(" Hello", 1.0, 1.5), make_word(" world.", 1.6, 2.4)]
         words = words if kwargs["word_timestamps"] else None

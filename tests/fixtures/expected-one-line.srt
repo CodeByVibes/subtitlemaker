@@ -82,3 +82,11 @@ men nu gör vi det här.
 00:01:00,000 --> 00:01:01,867
 Thank you all for listening.
 
+22
+00:01:02,000 --> 00:01:04,133
+Someone left the keys in the car
+
+23
+00:01:14,500 --> 00:01:16,555
+so we all had to walk home
+

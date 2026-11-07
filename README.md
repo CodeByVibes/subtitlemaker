@@ -108,8 +108,9 @@ For audio that switches language, list the languages (`-l en,sv`) or add `-m`. T
 | `--min-duration`    | 1.0     | Shortest time a subtitle stays on screen (seconds).  |
 | `--max-duration`    | 7.0     | Longest time a subtitle stays on screen (seconds).   |
 | `--min-gap`         | 0.05    | Smallest gap between two subtitles (seconds).        |
+| `--max-pause`       | 1.0     | Silence between two words that starts a new subtitle (seconds). |
 
-Timing follows the speech. A subtitle appears when its first word is spoken. If it would be too short or too quick to read, it is held longer, but only into free time: it never delays or overlaps the next subtitle. If two lines are spoken too close together, the first one is allowed to be shorter than `--min-duration`.
+Timing follows the speech. A subtitle appears when its first word is spoken. If it would be too short or too quick to read, it is held longer, but only into free time: it never delays or overlaps the next subtitle. If two lines are spoken too close together, the first one is allowed to be shorter than `--min-duration`. A long silence in the middle of a sentence (a laugh track, music) starts a new subtitle, so words are never shown long before they are spoken.
 
 ### Config file
 
@@ -123,6 +124,7 @@ max_cps = 17
 min_duration = 1.0
 max_duration = 6.0
 min_gap = 0.05
+max_pause = 1.0
 
 [model]
 name = "turbo"            # auto, a size, a Hugging Face repo id or a path
@@ -164,7 +166,6 @@ If the GPU can't be used, `--device auto` falls back to the CPU and tells you wh
 - At most two lines per subtitle.
 - Lines are wrapped at spaces, so languages written without spaces (Chinese, Japanese, Thai) are not wrapped well. This is untested.
 - Speakers are not identified, and no sound descriptions like `[music]` are added.
-- A long pause in the middle of a sentence does not split the subtitle yet.
 
 ## Contributing
 

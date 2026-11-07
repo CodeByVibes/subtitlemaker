@@ -2,6 +2,8 @@
 
 import pytest
 
+from tests.conftest import make_segment, make_word
+
 
 @pytest.fixture
 def media(tmp_path):
@@ -69,4 +71,43 @@ def test_version_flag(run, capsys):
         run("--version")
 
     assert exit_info.value.code == 0
-    assert capsys.readouterr().out.strip() == "subtitlemaker 0.1.0"
+    from subtitlemaker import __version__
+
+    assert capsys.readouterr().out.strip() == f"subtitlemaker {__version__}"
+
+
+def _pause_segment():
+    words = [
+        make_word(" first", 0.0, 0.5),
+        make_word(" words", 0.6, 1.0),
+        make_word(" later", 9.0, 9.4),
+        make_word(" words", 9.5, 10.0),
+    ]
+    return make_segment(" first words later words", 0.0, 10.0, words)
+
+
+def test_max_pause_flag_changes_the_split(run, fake_model, media):
+    fake_model.segments = [_pause_segment()]
+
+    run(media, "-q")
+    assert media.with_suffix(".srt").read_text().count("-->") == 2
+
+    run(media, "-q", "--max-pause", "20")
+    assert media.with_suffix(".srt").read_text().count("-->") == 1
+
+
+def test_max_pause_can_be_set_in_the_config_file(run, fake_model, media, tmp_path):
+    fake_model.segments = [_pause_segment()]
+    config = tmp_path / "c.toml"
+    config.write_text("[style]\nmax_pause = 20\n")
+
+    run(media, "-q", "--config", config)
+
+    assert media.with_suffix(".srt").read_text().count("-->") == 1
+
+
+def test_invalid_max_pause_is_a_usage_error(run, fake_model, media):
+    with pytest.raises(SystemExit) as exit_info:
+        run(media, "--max-pause", "0")
+
+    assert exit_info.value.code == 2

@@ -134,6 +134,15 @@ def _best_break(tokens):
     return clause if clause is not None else len(tokens)
 
 
+def _pause(previous, token):
+    """Seconds of silence between two tokens; 0 if either has no timing."""
+
+    if previous[2] is None or token[1] is None:
+        return 0.0
+
+    return token[1] - previous[2]
+
+
 def _chunk(tokens, style):
     """
     Split a segment's tokens into runs that each fit one cue.
@@ -142,12 +151,21 @@ def _chunk(tokens, style):
     space and the times may be None. A run only grows while it can still be
     laid out in valid lines, so every chunk (except a single over-long word)
     splits cleanly in `split_into_lines`.
+
+    A run also ends at a long silence: Whisper sometimes puts words that are
+    many seconds apart into one segment, and one cue would then show the
+    later words long before they are spoken.
     """
 
     chunks = []
     current = []
 
     for token in tokens:
+
+        if current and _pause(current[-1], token) >= style.max_pause:
+            chunks.append(current)
+            current = [token]
+            continue
 
         if not current or _fits(_join(current + [token]), style):
             current.append(token)

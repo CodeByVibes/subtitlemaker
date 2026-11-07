@@ -481,6 +481,16 @@ def main():
     )
 
     style_group.add_argument(
+        "--max-pause",
+        type=float,
+        metavar="SEC",
+        help=(
+            "Start a new subtitle when there is at least this much "
+            "silence between two words (default: 1.0)"
+        ),
+    )
+
+    style_group.add_argument(
         "--min-gap",
         type=float,
         metavar="SEC",
@@ -692,6 +702,7 @@ def main():
         log.debug("  Min duration:     %ss", style.min_duration)
         log.debug("  Max duration:     %ss", style.max_duration)
         log.debug("  Minimum gap:      %ss", style.min_gap)
+        log.debug("  Max pause:        %ss", style.max_pause)
 
         log.info("Loading Whisper model...")
 
