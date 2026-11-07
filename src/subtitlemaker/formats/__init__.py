@@ -8,10 +8,11 @@ To add a format: write a module like `vtt.py` and register it below.
 """
 
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from .._types import Cue
 from .srt import write_srt
 from .txt import write_txt
 from .vtt import write_vtt
@@ -23,7 +24,7 @@ DEFAULT_FORMAT = "srt"
 class OutputFormat:
     name: str
     extension: str
-    write: Callable
+    write: Callable[[Sequence[Cue], str | Path], None]
 
 
 FORMATS = {
@@ -36,7 +37,7 @@ FORMATS = {
 }
 
 
-def parse_formats(value):
+def parse_formats(value: str | None) -> list[str]:
     """
     Parse a comma or space separated list of format names.
 
@@ -62,7 +63,7 @@ def parse_formats(value):
     return names or [DEFAULT_FORMAT]
 
 
-def output_path(base, name):
+def output_path(base: str | Path, name: str) -> Path:
     """
     The file to write format `name` to, derived from `base`.
 

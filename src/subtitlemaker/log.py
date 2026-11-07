@@ -10,7 +10,7 @@ LOGGER_NAME = "subtitlemaker"
 class _Formatter(logging.Formatter):
     """Plain messages, with a prefix for warnings and errors."""
 
-    def format(self, record):
+    def format(self, record: logging.LogRecord) -> str:
         message = self._prefixed(record)
 
         # Tracebacks (from `exc_info=True`) and stack traces are what a bug
@@ -24,7 +24,7 @@ class _Formatter(logging.Formatter):
         return message
 
     @staticmethod
-    def _prefixed(record):
+    def _prefixed(record: logging.LogRecord) -> str:
         message = record.getMessage()
 
         # Other libraries often write their own "Warning:" prefix.
@@ -49,11 +49,11 @@ class _ConsoleHandler(logging.Handler):
     off because file names may contain [brackets] or :colons:.
     """
 
-    def __init__(self, console):
+    def __init__(self, console: Console) -> None:
         super().__init__()
         self.console = console
 
-    def emit(self, record):
+    def emit(self, record: logging.LogRecord) -> None:
         try:
             self.console.print(
                 self.format(record),
@@ -67,7 +67,7 @@ class _ConsoleHandler(logging.Handler):
             self.handleError(record)
 
 
-def setup_logging(quiet=False, verbose=False):
+def setup_logging(quiet: bool = False, verbose: bool = False) -> Console:
     """
     Configure logging and return the shared `rich` console.
 

@@ -1,9 +1,11 @@
 """Media file inspection."""
 
+from pathlib import Path
+
 import av
 
 
-def get_duration(filename):
+def get_duration(filename: str | Path) -> float:
     """Get media duration using PyAV."""
 
     container = av.open(filename)
@@ -43,7 +45,7 @@ MEDIA_EXTENSIONS = frozenset(
 )  # fmt: skip
 
 
-def find_media(directory, recursive=False):
+def find_media(directory: Path, recursive: bool = False) -> list[Path]:
     """
     The media files in `directory`, sorted by path.
 

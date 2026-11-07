@@ -4,10 +4,14 @@ import argparse
 import dataclasses
 import logging
 import time
+from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
+
+from rich.console import Console
 
 from . import __version__
-from .config import DEVICES, ConfigError, load_config
+from .config import DEVICES, ConfigError, ModelConfig, SubtitleStyle, load_config
 from .formats import DEFAULT_FORMAT, FORMATS, output_path, parse_formats
 from .languages import parse_language_argument
 from .log import LOGGER_NAME, setup_logging
@@ -22,11 +26,11 @@ log = logging.getLogger(LOGGER_NAME)
 class _Options:
     """Everything that stays the same for every file in a run."""
 
-    style: object
-    model_config: object
+    style: SubtitleStyle
+    model_config: ModelConfig
     task: str
-    languages: list
-    language_hint: object
+    languages: list[str]
+    language_hint: str | None
     multilingual: bool
     condition_on_previous_text: bool
     detect_segments: int
@@ -34,7 +38,7 @@ class _Options:
     quiet: bool
 
 
-def _expand_inputs(inputs, recursive):
+def _expand_inputs(inputs: Sequence[str], recursive: bool) -> tuple[list[Path], list[str]]:
     """
     Turn the command line inputs into a list of media files.
 
@@ -82,7 +86,9 @@ def _expand_inputs(inputs, recursive):
     return files, problems
 
 
-def _plan_outputs(input_file, args, formats):
+def _plan_outputs(
+    input_file: Path, args: argparse.Namespace, formats: Sequence[str]
+) -> dict[str, Path]:
     """The `{format: path}` files to write for one input."""
 
     if args.output:
@@ -103,7 +109,13 @@ def _plan_outputs(input_file, args, formats):
     }
 
 
-def _process_file(model, input_file, outputs, options, console):
+def _process_file(
+    model: Any,
+    input_file: Path,
+    outputs: dict[str, Path],
+    options: _Options,
+    console: Console,
+) -> bool:
     """Transcribe one file and write its outputs. Returns True on success."""
 
     if options.multilingual:
@@ -226,7 +238,7 @@ def _process_file(model, input_file, outputs, options, console):
     return True
 
 
-def main():
+def main() -> int:
     """Entry point: run the command line and return the exit code."""
 
     try:
@@ -238,7 +250,7 @@ def main():
         return 130
 
 
-def _build_parser():
+def _build_parser() -> argparse.ArgumentParser:
     """The argument parser. Building it does no work and imports nothing heavy."""
 
     parser = argparse.ArgumentParser(
@@ -520,16 +532,16 @@ def _build_parser():
 class _Settings:
     """Everything decided from the command line and config file, before any work."""
 
-    style: object
-    model_config: object
-    formats: list
-    languages: list
-    language_hint: object
+    style: SubtitleStyle
+    model_config: ModelConfig
+    formats: list[str]
+    languages: list[str]
+    language_hint: str | None
     multilingual: bool
     condition_on_previous_text: bool
 
 
-def _resolve_settings(args, parser):
+def _resolve_settings(args: argparse.Namespace, parser: argparse.ArgumentParser) -> _Settings:
     """
     Combine defaults, the config file and the command line.
 
@@ -643,7 +655,9 @@ def _resolve_settings(args, parser):
     )
 
 
-def _plan_all_outputs(files, args, formats):
+def _plan_all_outputs(
+    files: Sequence[Path], args: argparse.Namespace, formats: Sequence[str]
+) -> dict[Path, dict[str, Path]]:
     """
     Decide where every input's outputs go: `{input file: {format: path}}`.
 
@@ -659,7 +673,7 @@ def _plan_all_outputs(files, args, formats):
 
     plan = {file: _plan_outputs(file, args, formats) for file in files}
 
-    owners = {}
+    owners: dict[Path, Path] = {}
     input_paths = {file.resolve(): file for file in files}
 
     for file, outputs in plan.items():
@@ -685,7 +699,9 @@ def _plan_all_outputs(files, args, formats):
     return plan
 
 
-def _load_model_for_run(model_config, multilingual, task, style):
+def _load_model_for_run(
+    model_config: ModelConfig, multilingual: bool, task: str, style: SubtitleStyle
+) -> tuple[Any, ModelConfig] | None:
     """
     Resolve and load the model, logging what is used.
 
@@ -743,7 +759,7 @@ def _load_model_for_run(model_config, multilingual, task, style):
         return None
 
 
-def _run():
+def _run() -> int:
 
     parser = _build_parser()
 

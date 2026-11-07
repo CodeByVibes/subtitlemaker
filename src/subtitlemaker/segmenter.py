@@ -4,9 +4,13 @@ Pure logic: no printing, no file access, no model.
 """
 
 import re
+from collections.abc import Iterable, Sequence
+
+from ._types import Cue, SegmentLike, Token
+from .config import SubtitleStyle
 
 
-def clean_text(text):
+def clean_text(text: str) -> str:
     """Clean up Whisper text."""
 
     text = text.strip()
@@ -24,7 +28,7 @@ def clean_text(text):
     return text.strip()
 
 
-def split_into_lines(text, style):
+def split_into_lines(text: str, style: SubtitleStyle) -> list[str]:
     """
     Split subtitle into a maximum of `style.max_lines` lines.
 
@@ -44,7 +48,7 @@ def split_into_lines(text, style):
         return [text]
 
     # Find the best two-line split
-    best_split = None
+    best_split: tuple[str, str] | None = None
     best_score = float("inf")
 
     for i in range(1, len(words)):
@@ -96,7 +100,7 @@ def split_into_lines(text, style):
 _MIN_VISIBLE = 0.1
 
 
-def _fits(text, style):
+def _fits(text: str, style: SubtitleStyle) -> bool:
     """True if `text` can be laid out within the line and length limits."""
 
     if len(text) <= style.max_line_length:
@@ -114,11 +118,11 @@ def _fits(text, style):
     )
 
 
-def _join(tokens):
+def _join(tokens: Sequence[Token]) -> str:
     return clean_text("".join(token[0] for token in tokens))
 
 
-def _best_break(tokens):
+def _best_break(tokens: Sequence[Token]) -> int:
     """
     Where to end the cue when `tokens` plus one more word no longer fit.
 
@@ -127,7 +131,8 @@ def _best_break(tokens):
     `len(tokens)` means no good break was found.
     """
 
-    sentence = clause = None
+    sentence: int | None = None
+    clause: int | None = None
     total = len(_join(tokens))
 
     for i in range(1, len(tokens)):
@@ -146,7 +151,7 @@ def _best_break(tokens):
     return clause if clause is not None else len(tokens)
 
 
-def _pause(previous, token):
+def _pause(previous: Token, token: Token) -> float:
     """Seconds of silence between two tokens; 0 if either has no timing."""
 
     if previous[2] is None or token[1] is None:
@@ -155,7 +160,7 @@ def _pause(previous, token):
     return token[1] - previous[2]
 
 
-def _chunk(tokens, style):
+def _chunk(tokens: Sequence[Token], style: SubtitleStyle) -> list[list[Token]]:
     """
     Split a segment's tokens into runs that each fit one cue.
 
@@ -169,8 +174,8 @@ def _chunk(tokens, style):
     later words long before they are spoken.
     """
 
-    chunks = []
-    current = []
+    chunks: list[list[Token]] = []
+    current: list[Token] = []
 
     for token in tokens:
 
@@ -198,7 +203,7 @@ def _chunk(tokens, style):
     return chunks
 
 
-def _segment_tokens(segment, text):
+def _segment_tokens(segment: SegmentLike, text: str) -> list[Token]:
     """
     The words of a segment as `(text, start, end)` tokens.
 
@@ -227,7 +232,15 @@ def _segment_tokens(segment, text):
     return [(" " + word, None, None) for word in text.split()]
 
 
-def _segment_cues(segment, style):
+def _seconds(value: float | None) -> float:
+    """A token time that is known to be present (checked by the caller)."""
+
+    assert value is not None
+
+    return float(value)
+
+
+def _segment_cues(segment: SegmentLike, style: SubtitleStyle) -> list[Cue]:
     """Cues for one Whisper segment, with their speech timing and no padding."""
 
     text = clean_text(segment.text)
@@ -240,8 +253,8 @@ def _segment_cues(segment, style):
     if all(token[1] is not None for chunk in chunks for token in chunk):
         return [
             {
-                "start": float(chunk[0][1]),
-                "end": max(float(chunk[-1][2]), float(chunk[0][1])),
+                "start": _seconds(chunk[0][1]),
+                "end": max(_seconds(chunk[-1][2]), _seconds(chunk[0][1])),
                 "text": _join(chunk),
             }
             for chunk in chunks
@@ -253,7 +266,7 @@ def _segment_cues(segment, style):
 
     total_chars = sum(len(_join(chunk)) for chunk in chunks)
 
-    cues = []
+    cues: list[Cue] = []
     cursor = start
 
     for chunk in chunks:
@@ -268,7 +281,7 @@ def _segment_cues(segment, style):
     return cues
 
 
-def _apply_timing(cues, style):
+def _apply_timing(cues: Sequence[Cue], style: SubtitleStyle) -> list[Cue]:
     """
     Make cue timing readable without moving speech around.
 
@@ -282,8 +295,8 @@ def _apply_timing(cues, style):
          cue, so a very short gap can leave a cue under `min_duration`.
     """
 
-    timed = []
-    previous_end = None
+    timed: list[Cue] = []
+    previous_end: float | None = None
 
     for i, cue in enumerate(cues):
 
@@ -314,10 +327,10 @@ def _apply_timing(cues, style):
     return timed
 
 
-def build_subtitles(segments, style):
+def build_subtitles(segments: Iterable[SegmentLike], style: SubtitleStyle) -> list[Cue]:
     """Convert Whisper segments into formatted subtitles."""
 
-    cues = []
+    cues: list[Cue] = []
 
     for segment in segments:
 

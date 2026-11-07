@@ -45,7 +45,11 @@ cuda = [
 subtitlemaker = "subtitlemaker.cli:main"
 
 [dependency-groups]
-dev = ["pytest>=8", "ruff>=0.6"]
+dev = [
+    "mypy>=2.4.1",
+    "pytest>=8",
+    "ruff>=0.6",
+]
 
 [build-system]
 requires = ["hatchling"]
@@ -83,3 +87,12 @@ addopts = "-m 'not integration'"
 markers = [
     "integration: slow tests that run a real Whisper model (run with: pytest -m integration)",
 ]
+
+[tool.mypy]
+strict = true
+files = ["src"]
+
+# faster-whisper and ctranslate2 ship no type information.
+[[tool.mypy.overrides]]
+module = ["faster_whisper", "faster_whisper.*", "ctranslate2"]
+ignore_missing_imports = true

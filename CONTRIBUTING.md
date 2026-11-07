@@ -28,13 +28,14 @@ uv run subtitlemaker --help
 
 ```console
 uv run ruff check src tests     # lint
+uv run mypy                     # type check (strict)
 uv run pytest                   # unit, snapshot and pipeline tests: fast, no GPU or model needed
 uv run pytest -m integration    # runs the real "tiny" model on a short clip (downloads 73 MB once)
 ```
 
 CI runs the lint and the fast tests on Python 3.10 to 3.13, and the integration tests once. Please make sure these pass before opening a pull request.
 
-The code style is plain and spacious. Run `ruff check`, but do not run `ruff format` over `src/`, it would rewrite the whole code base.
+The code style is plain and spacious. The code is fully type annotated and checked with `mypy --strict`; keep new code annotated. Run `ruff check`, but do not run `ruff format` over `src/`, it would rewrite the whole code base.
 
 ## How the code is organised
 

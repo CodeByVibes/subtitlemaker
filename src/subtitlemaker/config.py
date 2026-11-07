@@ -31,7 +31,7 @@ class SubtitleStyle:
     min_gap: float = 0.05  # Minimum gap between subtitles (seconds)
     max_pause: float = 1.0  # Silence between two words that starts a new subtitle (seconds)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not isinstance(self.max_line_length, int) or self.max_line_length < 1:
             raise ConfigError("max_line_length must be an integer of at least 1")
 
@@ -73,7 +73,7 @@ class ModelConfig:
     condition_on_previous_text: bool = True
     word_timestamps: bool = True  # time cues from words, not whole segments
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.device not in DEVICES:
             raise ConfigError(f"device must be one of: {', '.join(DEVICES)}")
 
@@ -89,7 +89,7 @@ _SECTIONS = {
 }
 
 
-def default_config_path():
+def default_config_path() -> Path:
     """Location of the user config file (respects XDG_CONFIG_HOME)."""
 
     base = os.environ.get("XDG_CONFIG_HOME")
@@ -98,7 +98,7 @@ def default_config_path():
     return root / "subtitlemaker" / "config.toml"
 
 
-def load_config(path=None):
+def load_config(path: str | Path | None = None) -> tuple[SubtitleStyle, ModelConfig]:
     """
     Load the config file and return `(SubtitleStyle, ModelConfig)`.
 
@@ -107,7 +107,7 @@ def load_config(path=None):
     """
 
     explicit = path is not None
-    path = Path(path) if explicit else default_config_path()
+    path = default_config_path() if path is None else Path(path)
 
     if not path.is_file():
         if explicit and path.exists():

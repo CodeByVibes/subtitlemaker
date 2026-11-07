@@ -22,10 +22,10 @@ _PACKAGES = (
     ("nvidia.cudnn", ("libcudnn.so.9",)),
 )
 
-_loaded = None
+_loaded: bool | None = None
 
 
-def _package_lib_dir(package):
+def _package_lib_dir(package: str) -> Path | None:
     """Directory holding the shared libraries of an nvidia-* pip package."""
 
     try:
@@ -39,7 +39,7 @@ def _package_lib_dir(package):
     return Path(paths[0]) if paths else None
 
 
-def preload_cuda_libs():
+def preload_cuda_libs() -> bool:
     """
     Load cuBLAS and cuDNN from the pip nvidia-* packages, if installed.
 

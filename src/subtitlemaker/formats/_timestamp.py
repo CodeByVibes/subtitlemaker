@@ -1,7 +1,7 @@
 """Timestamp formatting shared by the subtitle formats."""
 
 
-def format_timestamp(seconds, decimal):
+def format_timestamp(seconds: float, decimal: str) -> str:
     """
     Format seconds as `HH:MM:SS<decimal>mmm`.
 

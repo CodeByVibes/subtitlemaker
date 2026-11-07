@@ -4,11 +4,13 @@ import contextlib
 import os
 import stat
 import tempfile
+from collections.abc import Iterator
 from pathlib import Path
+from typing import TextIO
 
 
 @contextlib.contextmanager
-def atomic_open(path):
+def atomic_open(path: str | Path) -> Iterator[TextIO]:
     """
     Open `path` for writing text (UTF-8), replacing it only on success.
 
@@ -37,7 +39,7 @@ def atomic_open(path):
         raise
 
 
-def _copy_mode(path, temp_name):
+def _copy_mode(path: Path, temp_name: str) -> None:
     # mkstemp makes the file private (0600); give it the permissions a plain
     # open() would have: those of the file being replaced, or the umask default.
     try:

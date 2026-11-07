@@ -1,10 +1,21 @@
 """Time formatting and the live transcription progress display."""
 
-from rich.progress import BarColumn, Progress, ProgressColumn, TaskProgressColumn, TextColumn
+from types import TracebackType
+
+from rich.console import Console
+from rich.progress import (
+    BarColumn,
+    Progress,
+    ProgressColumn,
+    Task,
+    TaskID,
+    TaskProgressColumn,
+    TextColumn,
+)
 from rich.text import Text
 
 
-def format_time(seconds):
+def format_time(seconds: float) -> str:
     """Format seconds as HH:MM:SS."""
 
     seconds = max(0, int(seconds))
@@ -19,14 +30,14 @@ def format_time(seconds):
 class _PositionColumn(ProgressColumn):
     """Media position, e.g. `00:00:06 / 00:01:00`."""
 
-    def render(self, task):
-        return Text(f"{format_time(task.completed)} / {format_time(task.total)}")
+    def render(self, task: Task) -> Text:
+        return Text(f"{format_time(task.completed)} / {format_time(task.total or 0)}")
 
 
 class _SpeedColumn(ProgressColumn):
     """Media seconds processed per real second, e.g. ` 7.4x`."""
 
-    def render(self, task):
+    def render(self, task: Task) -> Text:
         elapsed = task.elapsed or 0
 
         speed = task.completed / elapsed if elapsed > 0 else 0.0
@@ -37,12 +48,12 @@ class _SpeedColumn(ProgressColumn):
 class _EtaColumn(ProgressColumn):
     """Estimated real time remaining, based on the average speed so far."""
 
-    def render(self, task):
+    def render(self, task: Task) -> Text:
         elapsed = task.elapsed or 0
 
         speed = task.completed / elapsed if elapsed > 0 else 0.0
 
-        if speed > 0 and task.total > task.completed:
+        if speed > 0 and task.total is not None and task.total > task.completed:
             eta = (task.total - task.completed) / speed
 
         else:
@@ -61,7 +72,7 @@ class TranscriptionProgress:
     With `enabled=False` (or an unknown duration) it does nothing.
     """
 
-    def __init__(self, total, console, enabled=True):
+    def __init__(self, total: float, console: Console, enabled: bool = True) -> None:
         self._total = float(total)
         self._enabled = bool(enabled and total)
 
@@ -76,21 +87,28 @@ class TranscriptionProgress:
             disable=not self._enabled,
         )
 
-        self._task = None
+        self._task: TaskID | None = None
 
-    def __enter__(self):
+    def __enter__(self) -> "TranscriptionProgress":
         self._progress.start()
         self._task = self._progress.add_task("", total=self._total)
 
         return self
 
-    def __exit__(self, exc_type, exc, tb):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> None:
         self._progress.stop()
 
-    def update(self, processed):
+    def update(self, processed: float) -> None:
         """Report that `processed` seconds of media are done."""
 
         if self._enabled:
+            assert self._task is not None, "update() called outside the with block"
+
             self._progress.update(
                 self._task,
                 completed=min(float(processed), self._total),

@@ -1,9 +1,10 @@
 """Parsing of the -l/--language argument (light: no machine learning imports)."""
 
 import re
+from collections.abc import Collection
 
 
-def _known_language_codes():
+def _known_language_codes() -> Collection[str] | None:
     """Whisper's language codes, or None if they can't be looked up."""
 
     # Imported here so that --help and --version stay fast.
@@ -13,10 +14,12 @@ def _known_language_codes():
     except ImportError:
         return None
 
-    return _LANGUAGE_CODES
+    codes: Collection[str] = _LANGUAGE_CODES
+
+    return codes
 
 
-def parse_language_argument(value):
+def parse_language_argument(value: str | None) -> tuple[list[str], bool]:
     """
     Parse the -l/--language argument.
 

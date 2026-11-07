@@ -10,6 +10,7 @@ import numpy as np
 from faster_whisper import WhisperModel, available_models
 
 from ._cuda import preload_cuda_libs
+from .config import ModelConfig
 from .languages import parse_language_argument  # noqa: F401  (kept importable here)
 
 log = logging.getLogger(__name__)
@@ -31,17 +32,17 @@ class ModelError(RuntimeError):
     """A model could not be selected or loaded. The message is user-facing."""
 
 
-def cuda_available():
+def cuda_available() -> bool:
     """True if CTranslate2 can see at least one CUDA device."""
 
     try:
-        return ctranslate2.get_cuda_device_count() > 0
+        return bool(ctranslate2.get_cuda_device_count() > 0)
 
     except RuntimeError:
         return False
 
 
-def resolve_model_config(config, cuda=None):
+def resolve_model_config(config: ModelConfig, cuda: bool | None = None) -> ModelConfig:
     """
     Turn "auto" settings into concrete ones.
 
@@ -126,7 +127,11 @@ def resolve_model_config(config, cuda=None):
     )
 
 
-def load_model(config, allow_cpu_fallback=False, requested=None):
+def load_model(
+    config: ModelConfig,
+    allow_cpu_fallback: bool = False,
+    requested: ModelConfig | None = None,
+) -> tuple[WhisperModel, ModelConfig]:
     """
     Load the model described by a resolved `ModelConfig`.
 
@@ -196,7 +201,7 @@ def load_model(config, allow_cpu_fallback=False, requested=None):
             raise _load_error(fallback.name, e2) from e2
 
 
-def _load_error(name, error):
+def _load_error(name: str, error: BaseException) -> ModelError:
     """A `ModelError` for any failure to create a model, with a hint."""
 
     return ModelError(
@@ -206,7 +211,7 @@ def _load_error(name, error):
     )
 
 
-def _create(config):
+def _create(config: ModelConfig) -> WhisperModel:
     model = WhisperModel(
         config.name,
         device=config.device,
@@ -219,7 +224,7 @@ def _create(config):
     return model
 
 
-def _warm_up(model):
+def _warm_up(model: WhisperModel) -> None:
     """
     Run one tiny encode on the GPU.
 
