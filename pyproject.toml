@@ -52,6 +52,19 @@ build-backend = "hatchling.build"
 [tool.hatch.version]
 path = "src/subtitlemaker/__init__.py"
 
+# Only these go into the source distribution. An allow-list means a stray
+# local file can never end up on PyPI.
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/tests",
+    "/README.md",
+    "/LICENSE",
+    "/CHANGELOG.md",
+    "/CONTRIBUTING.md",
+    "/pyproject.toml",
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/subtitlemaker"]
 
