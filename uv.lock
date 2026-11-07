@@ -677,15 +677,14 @@ wheels = [
 
 [[package]]
 name = "nvidia-cudnn-cu12"
-version = "9.28.0.42"
+version = "9.28.1.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "nvidia-cublas-cu12" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/41/0d/ed504f33bf97ab4607da2647e6847262587d330fe288046b9cf77f5a8a7e/nvidia_cudnn_cu12-9.28.0.42-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:f88db8fc1a0a5f458e19aa7b08fbe3500aeb9e2bb8dea6293ecbce170364ad72", size = 723261984, upload-time = "2026-11-04T20:41:06.994Z" },
-    { url = "https://files.pythonhosted.org/packages/ce/64/56ce3cad192cc75b50da3be44e36741ba963c84d3d2ca10aaa5ec16c49c3/nvidia_cudnn_cu12-9.28.0.42-py3-none-manylinux_2_27_x86_64.whl", hash = "sha256:9ff58b7f36dacd0a93e89f8f2957b52466889217963701daa15e577317cfa375", size = 716538495, upload-time = "2026-11-04T20:05:03.56Z" },
-    { url = "https://files.pythonhosted.org/packages/f4/a9/5d6d29cce055b51c735f9c400c5fa906574c26f403c102179d5794595ff9/nvidia_cudnn_cu12-9.28.0.42-py3-none-win_amd64.whl", hash = "sha256:e8eb548c252e95713e81e6fc53c61940d13114d7116908069d018b2d24700620", size = 693320977, upload-time = "2026-11-04T20:08:45.156Z" },
+    { url = "https://files.pythonhosted.org/packages/2a/16/be895437624ae0400bda2b4bb69336cdb43346545e54edb15389d193a3b3/nvidia_cudnn_cu12-9.28.1.4-py3-none-manylinux_2_27_x86_64.whl", hash = "sha256:cbcf6f33c77fef3aa61d3fec36f2e89b07eb27d65b9f369c1adf3cfee08c2c21", size = 716579350, upload-time = "2026-11-06T21:51:22.24Z" },
+    { url = "https://files.pythonhosted.org/packages/c7/bd/1d6709d2223e99f04079f16005f8ae6e11a14ee16b5eab6833686cf72fe1/nvidia_cudnn_cu12-9.28.1.4-py3-none-win_amd64.whl", hash = "sha256:3467aafa9b260e6adf5fbbfc0e21d180133305b42032aa1160be2d3142bb8b09", size = 696300805, upload-time = "2026-11-06T21:54:48.887Z" },
 ]
 
 [[package]]
@@ -943,7 +942,6 @@ wheels = [
 
 [[package]]
 name = "subtitlemaker"
-version = "0.0.1"
 source = { editable = "." }
 dependencies = [
     { name = "av" },
@@ -966,8 +964,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "av", specifier = ">=11,<17" },
-    { name = "faster-whisper", specifier = ">=1.1" },
+    { name = "av", specifier = ">=13,<17" },
+    { name = "faster-whisper", specifier = ">=1.2.1" },
     { name = "nvidia-cublas-cu12", marker = "extra == 'cuda'" },
     { name = "nvidia-cudnn-cu12", marker = "extra == 'cuda'", specifier = "==9.*" },
     { name = "rich", specifier = ">=13" },
@@ -977,8 +975,8 @@ provides-extras = ["cuda"]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "pytest" },
-    { name = "ruff" },
+    { name = "pytest", specifier = ">=8" },
+    { name = "ruff", specifier = ">=0.6" },
 ]
 
 [[package]]

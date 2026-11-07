@@ -1,6 +1,6 @@
 [project]
 name = "subtitlemaker"
-version = "0.0.1"
+dynamic = ["version"]
 description = "Generate subtitles from audio and video files using faster-whisper."
 readme = "README.md"
 license = "MIT"
@@ -8,16 +8,30 @@ license-files = ["LICENSE"]
 authors = [{ name = "Johan Isevind", email = "codebyvibes@isevind.se" }]
 requires-python = ">=3.10"
 dependencies = [
-    "faster-whisper>=1.1",
-    "av>=11,<17",
+    "faster-whisper>=1.2.1",
+    "av>=13,<17",
     "rich>=13",
     "tomli>=2; python_version < '3.11'",
 ]
+keywords = ["subtitles", "srt", "vtt", "whisper", "faster-whisper", "transcription", "speech-to-text"]
 classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Multimedia :: Sound/Audio :: Speech",
     "Topic :: Multimedia :: Video",
 ]
+
+[project.urls]
+Homepage = "https://github.com/CodeByVibes/subtitlemaker"
+Issues = "https://github.com/CodeByVibes/subtitlemaker/issues"
+Changelog = "https://github.com/CodeByVibes/subtitlemaker/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 cuda = [
@@ -29,11 +43,14 @@ cuda = [
 subtitlemaker = "subtitlemaker.cli:main"
 
 [dependency-groups]
-dev = ["pytest", "ruff"]
+dev = ["pytest>=8", "ruff>=0.6"]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "src/subtitlemaker/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/subtitlemaker"]
