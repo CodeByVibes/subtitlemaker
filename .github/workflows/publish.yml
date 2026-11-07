@@ -1,0 +1,59 @@
+name: Publish
+
+# Pushing a tag like v0.1.0 builds the package and publishes it to PyPI.
+# "Run workflow" on the Actions tab builds and checks it without publishing.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v10
+        with:
+          python-version: "3.12"
+      - name: The tag must match the package version
+        if: github.ref_type == 'tag'
+        run: |
+          version=$(uv run --no-project python -c "import re; print(re.search(r'__version__ = \"(.+?)\"', open('src/subtitlemaker/__init__.py').read()).group(1))")
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match version $version in src/subtitlemaker/__init__.py"
+            exit 1
+          fi
+      - run: uv sync --locked
+      - run: uv run ruff check src tests
+      - run: uv run pytest
+      - run: uv build
+      - name: Check the package metadata
+        run: uvx twine check --strict dist/*
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  publish:
+    name: Publish to PyPI
+    needs: build
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/subtitlemaker
+    permissions:
+      id-token: write # trusted publishing: PyPI trusts this workflow, no token needed
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
