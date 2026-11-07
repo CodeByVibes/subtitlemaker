@@ -219,6 +219,18 @@ def _process_file(model, input_file, outputs, options, console):
 
 
 def main():
+    """Entry point: run the command line and return the exit code."""
+
+    try:
+        return _run()
+
+    except KeyboardInterrupt:
+        # Nothing is half-written: outputs are written after transcription.
+        log.error("interrupted")
+        return 130
+
+
+def _run():
 
     parser = argparse.ArgumentParser(
         prog="subtitlemaker",

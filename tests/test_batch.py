@@ -268,3 +268,17 @@ def test_a_language_list_is_logged_as_not_limiting_detection(run, fake_model, li
     assert "auto-detect per segment" in err
     assert "not limited" in err
     assert fake_model.calls[0]["language"] is None
+
+
+def test_ctrl_c_stops_quietly_with_exit_code_130(run, fake_model, library, capsys):
+    fake_model.fail["a.mp3"] = KeyboardInterrupt()
+
+    assert run(library, "-q") == 130
+
+    err = capsys.readouterr().err
+
+    assert "interrupted" in err
+    assert "Traceback" not in err
+    # the batch stops: b.mp4 is not processed and nothing is half-written
+    assert not (library / "b.srt").exists()
+    assert not (library / "a.srt").exists()

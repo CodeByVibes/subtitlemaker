@@ -90,7 +90,7 @@ Files are written next to each input and named after it (`talk.mp4` becomes `tal
 - `-o FILE` names the output for a single input. With several formats it is a base name and the extension is replaced for each one.
 - `-d DIR` writes all outputs into one folder (created if needed). Two inputs that would write the same file are refused before anything runs.
 
-The exit code is `0` when everything succeeded, `1` if any file failed (the others are still processed), and `2` for invalid options.
+The exit code is `0` when everything succeeded, `1` if any file failed (the others are still processed), `2` for invalid options, and `130` if you stop it with Ctrl-C.
 
 ### Languages
 
