@@ -77,7 +77,7 @@ def test_integer_is_accepted_where_float_expected(tmp_path):
         ("[style]\nmax_lines = true\n", "must be int"),
         ("[model]\nvad_filter = 1\n", "must be bool"),
         ("[style]\nmin_duration = 9\n", "min_duration"),
-        ("[model]\ndevice = \"gpu\"\n", "device must be one of"),
+        ('[model]\ndevice = "gpu"\n', "device must be one of"),
         ("x = [", "invalid TOML"),
     ],
 )

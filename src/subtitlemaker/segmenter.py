@@ -169,7 +169,30 @@ def _chunk(tokens, style):
 
 
 def _segment_tokens(segment, text):
-    """The words of a segment as tokens, without timing."""
+    """
+    The words of a segment as `(text, start, end)` tokens.
+
+    Uses Whisper's word timestamps when it provided them and they agree with
+    the segment text. Otherwise the tokens carry no timing and the caller
+    spreads the segment's duration over them.
+    """
+
+    words = getattr(segment, "words", None) or []
+
+    tokens = [
+        (word.word, word.start, word.end)
+        for word in words
+        if word.word.strip()
+    ]
+
+    usable = (
+        tokens
+        and all(start is not None and end is not None for _, start, end in tokens)
+        and "".join(word for word, _, _ in tokens).split() == text.split()
+    )
+
+    if usable:
+        return tokens
 
     return [(" " + word, None, None) for word in text.split()]
 
@@ -182,12 +205,22 @@ def _segment_cues(segment, style):
     if not text:
         return []
 
+    chunks = _chunk(_segment_tokens(segment, text), style)
+
+    if all(token[1] is not None for chunk in chunks for token in chunk):
+        return [
+            {
+                "start": float(chunk[0][1]),
+                "end": max(float(chunk[-1][2]), float(chunk[0][1])),
+                "text": _join(chunk),
+            }
+            for chunk in chunks
+        ]
+
+    # No word timing: share the segment's duration out by text length.
     start = float(segment.start)
     end = float(segment.end)
 
-    chunks = _chunk(_segment_tokens(segment, text), style)
-
-    # No word timing: share the segment's duration out by text length.
     total_chars = sum(len(_join(chunk)) for chunk in chunks)
 
     cues = []

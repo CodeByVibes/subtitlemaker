@@ -64,6 +64,7 @@ class ModelConfig:
     compute_type: str = "auto"  # e.g. float16, int8, int8_float16
     vad_filter: bool = True
     condition_on_previous_text: bool = True
+    word_timestamps: bool = True  # time cues from words, not whole segments
 
     def __post_init__(self):
         if self.device not in DEVICES:

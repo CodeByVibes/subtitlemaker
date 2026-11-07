@@ -179,6 +179,17 @@ def main():
         ),
     )
 
+    model_group.add_argument(
+        "--word-timestamps",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help=(
+            "Time cues from individual words, which splits long "
+            "sentences accurately (default: on; --no-word-timestamps "
+            "is faster but less precise)"
+        ),
+    )
+
     style_group = parser.add_argument_group(
         "subtitle style",
         "Override the defaults and any config file values",
@@ -255,6 +266,7 @@ def main():
                 ("model", "name"),
                 ("device", "device"),
                 ("compute_type", "compute_type"),
+                ("word_timestamps", "word_timestamps"),
             )
             if getattr(args, option) is not None
         }
@@ -441,6 +453,7 @@ def main():
         language=language_hint,
         task=args.task,
         vad_filter=model_config.vad_filter,
+        word_timestamps=model_config.word_timestamps,
         multilingual=multilingual,
         condition_on_previous_text=(
             condition_on_previous_text
