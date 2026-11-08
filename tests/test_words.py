@@ -212,3 +212,22 @@ def test_a_segment_without_word_timing_is_a_boundary_and_order_is_kept():
 
 def test_word_timestamps_are_on_by_default_in_the_model_config():
     assert ModelConfig().word_timestamps is True
+
+
+def test_collapsed_word_times_do_not_make_an_invisible_cue():
+    # Real case (large-v3, sitcom): Whisper put every word of "You don't have
+    # to tell me, but" at 141.48s with zero length, at the end of a segment.
+    # Chunked per segment, that was a cue shown for the 0.1s floor (300 cps).
+    before = words_segment(evenly("Knowing you're going to be expected?", 139.0, 0.4))
+    collapsed = words_segment(
+        [(w, 141.48, 141.48) for w in "You don't have to tell me, but".split()]
+    )
+    after = words_segment(
+        [("Well,", 141.48, 141.72), ("how", 141.72, 142.78), ("does", 142.78, 142.96)]
+        + [("it", 142.96, 143.1), ("feel,", 143.1, 143.5), ("Lemmer,", 143.52, 143.86)]
+    )
+
+    cues = build_subtitles([before, collapsed, after], STYLE)
+
+    assert all(c["end"] - c["start"] >= 0.5 for c in cues)
+    assert not any(c["text"].replace("\n", " ") == "You don't have to tell me, but" for c in cues)
