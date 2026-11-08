@@ -28,14 +28,37 @@ def clean_text(text: str) -> str:
     return text.strip()
 
 
+_SENTENCE_END = (".", "!", "?")
+_CLAUSE_END = (",", ";", ":")
+_DASHES = ("–", "—", "-")
+
+
+def _speaker_changes(words: Sequence[str]) -> set[int]:
+    """
+    Indexes of words that start a new speaker's line: a dash glued to the
+    word ("–Ja!") right after a sentence end. The sentence end keeps a minus
+    sign ("it was -20 degrees") from counting.
+    """
+
+    return {
+        i
+        for i in range(1, len(words))
+        if words[i].startswith(_DASHES)
+        and len(words[i]) > 1
+        and words[i - 1].endswith(_SENTENCE_END)
+    }
+
+
 def split_into_lines(text: str, style: SubtitleStyle) -> list[str]:
     """
     Split subtitle into a maximum of `style.max_lines` lines.
 
     Attempts to:
     - keep lines below `style.max_line_length`
+    - give each speaker their own line when a dialogue dash starts a new
+      speaker ("–Ja? –Vill du veta?"), even if the text fits on one line
     - balance line lengths
-    - prefer punctuation boundaries
+    - prefer a sentence end, then a clause boundary, at the end of line 1
     """
 
     words = text.split()
@@ -43,8 +66,10 @@ def split_into_lines(text: str, style: SubtitleStyle) -> list[str]:
     if not words:
         return []
 
+    speakers = _speaker_changes(words) if style.max_lines >= 2 else set()
+
     # Fits on one line
-    if len(text) <= style.max_line_length:
+    if len(text) <= style.max_line_length and not speakers:
         return [text]
 
     # Find the best two-line split
@@ -62,10 +87,17 @@ def split_into_lines(text: str, style: SubtitleStyle) -> list[str]:
             continue
 
         # Prefer balanced lines
-        score = abs(len(left) - len(right))
+        score = float(abs(len(left) - len(right)))
 
-        # Prefer punctuation at the end of line 1
-        if left.endswith((".", ",", "!", "?", ";", ":")):
+        # A new speaker goes on a new line, whatever the balance.
+        if i in speakers:
+            score -= 1000
+
+        # Prefer a sentence end, then a clause boundary, at the end of line 1
+        elif left.endswith(_SENTENCE_END):
+            score -= 25
+
+        elif left.endswith(_CLAUSE_END):
             score -= 15
 
         if score < best_score:
@@ -139,10 +171,10 @@ def _best_break(tokens: Sequence[Token]) -> int:
 
         word = tokens[i - 1][0].strip()
 
-        if word.endswith((".", "!", "?")):
+        if word.endswith(_SENTENCE_END):
             sentence = i
 
-        elif word.endswith((",", ";", ":")) and len(_join(tokens[:i])) * 2 >= total:
+        elif word.endswith(_CLAUSE_END) and len(_join(tokens[:i])) * 2 >= total:
             clause = i
 
     if sentence is not None:
