@@ -5,6 +5,8 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 ## [Unreleased]
 
 ### Added
+- `--prompt TEXT` (and `initial_prompt` in the `[model]` section of the config file): text Whisper continues from. When a recording starts mid-sentence, Whisper can write minutes of text with no punctuation or capitals; a punctuated prompt fixes that. On three such 5-minute clips of a sitcom, punctuation went from 0–7% of words to 20–27%, the same as the rest of the episode. Off by default: on a Swedish programme with broadcast subtitles to compare against, prompts changed the word error rate by −1.4 to +6.4 points, with no prompt reliably better.
+- A warning when a transcript has almost no punctuation (under one mark per 50 words, and at least 150 words), suggesting `--prompt`. It fired on all three unpunctuated clips and on none of ten normal ones.
 - `--linger` (and `linger` in the `[style]` section of the config file): a subtitle stays up this long after its speech ends, if the time is free. The default is 0.5 seconds; before, a subtitle could vanish the instant the last word ended.
 - `--close-gap` (and `close_gap`): when the gap to the next subtitle would be shorter than this, the subtitle stays up until `--min-gap` before the next one, so text doesn't flicker off and on between lines of dialogue. The default is 0.5 seconds. `--max-duration` is still a hard limit. On four 5-minute TV clips this removed 40 of 42 gaps between 0.06 and 0.5 s (the other two cues are at the 7 s limit) and cut subtitles faster than 20 characters per second from 36 to 25. Setting both to 0 turns them off.
 

@@ -17,7 +17,7 @@ from .languages import parse_language_argument
 from .log import LOGGER_NAME, setup_logging
 from .media import find_media, get_duration
 from .progress import TranscriptionProgress, format_time
-from .segmenter import build_subtitles
+from .segmenter import build_subtitles, lacks_punctuation
 
 log = logging.getLogger(LOGGER_NAME)
 
@@ -169,6 +169,7 @@ def _process_file(
         word_timestamps=options.model_config.word_timestamps,
         multilingual=options.multilingual,
         condition_on_previous_text=options.condition_on_previous_text,
+        initial_prompt=options.model_config.initial_prompt or None,
         language_detection_segments=options.detect_segments,
         language_detection_threshold=options.detect_threshold,
     )
@@ -230,6 +231,16 @@ def _process_file(
 
     else:
         text_language = info.language
+
+    if lacks_punctuation(processed_segments, text_language):
+        log.warning(
+            "Whisper wrote almost no punctuation for %s, so subtitles will "
+            "end in the middle of sentences. This tends to happen when a "
+            "recording starts mid-sentence. Try again with a sentence or "
+            "two in the same language and style, e.g. "
+            "--prompt \"Hello, everyone. Let's begin.\"",
+            input_file.name,
+        )
 
     subtitles = build_subtitles(processed_segments, options.style, text_language)
 
@@ -405,6 +416,16 @@ def _build_parser() -> argparse.ArgumentParser:
             "the next segment "
             "(default: off for multilingual, "
             "on otherwise)"
+        ),
+    )
+
+    parser.add_argument(
+        "--prompt",
+        metavar="TEXT",
+        help=(
+            "Text for Whisper to continue from, in the style you want; "
+            "a punctuated sentence or two brings back missing "
+            "punctuation (default: none)"
         ),
     )
 
@@ -599,6 +620,7 @@ def _resolve_settings(args: argparse.Namespace, parser: argparse.ArgumentParser)
                 ("device", "device"),
                 ("compute_type", "compute_type"),
                 ("word_timestamps", "word_timestamps"),
+                ("prompt", "initial_prompt"),
             )
             if getattr(args, option) is not None
         }

@@ -160,3 +160,49 @@ def test_line_breaks_use_the_language_of_the_subtitles(
     run(media, "-q", *extra)
 
     assert line_one in media.with_suffix(".srt").read_text()
+
+
+def test_no_prompt_by_default(run, fake_model, media):
+    run(media, "-q")
+
+    assert fake_model.calls[0]["initial_prompt"] is None
+
+
+def test_prompt_flag_is_passed_to_whisper(run, fake_model, media):
+    run(media, "-q", "--prompt", "Hello, everyone. Let's begin.")
+
+    assert fake_model.calls[0]["initial_prompt"] == "Hello, everyone. Let's begin."
+
+
+def test_prompt_can_be_set_in_the_config_file(run, fake_model, media, tmp_path):
+    config = tmp_path / "c.toml"
+    config.write_text('[model]\ninitial_prompt = "Hej. Nu kör vi."\n')
+
+    run(media, "-q", "--config", config)
+
+    assert fake_model.calls[0]["initial_prompt"] == "Hej. Nu kör vi."
+
+
+def _long_segments(text):
+    return [make_segment(" " + text, i * 5.0, i * 5.0 + 4.0) for i in range(12)]
+
+
+def test_missing_punctuation_gives_a_warning(run, fake_model, media, caplog):
+    fake_model.segments = _long_segments(
+        "mikey what's going on what's going on in there are you okay now i get it okay robin"
+    )
+
+    assert run(media) == 0
+
+    assert "almost no punctuation" in caplog.text
+    assert "--prompt" in caplog.text
+
+
+def test_normal_punctuation_gives_no_warning(run, fake_model, media, caplog):
+    fake_model.segments = _long_segments(
+        "Mikey, what's going on? What's going on in there? Are you okay? Now I get it."
+    )
+
+    run(media)
+
+    assert "almost no punctuation" not in caplog.text

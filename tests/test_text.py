@@ -1,7 +1,7 @@
 import pytest
 
 from subtitlemaker.config import SubtitleStyle
-from subtitlemaker.segmenter import clean_text, split_into_lines
+from subtitlemaker.segmenter import clean_text, lacks_punctuation, split_into_lines
 
 STYLE = SubtitleStyle()
 
@@ -211,3 +211,38 @@ def test_pronouns_are_not_binding_words():
 )
 def test_a_name_is_not_split_over_two_lines(text, expected):
     assert split_into_lines(text, STYLE) == expected
+
+
+def _segments(text, copies=1):
+    from tests.conftest import make_segment
+
+    return [make_segment(" " + text, 0.0, 1.0) for _ in range(copies)]
+
+
+def test_a_transcript_without_punctuation_is_noticed():
+    # Real style (large-v3, sitcom clip starting mid-sentence).
+    text = "mikey what's going on what's going on in there are you okay now i get it okay robin"
+
+    assert lacks_punctuation(_segments(text, 10), "en")
+
+
+def test_a_normal_transcript_is_not():
+    text = "Mikey, what's going on? What's going on in there? Are you okay? Now I get it."
+
+    assert not lacks_punctuation(_segments(text, 10), "en")
+
+
+def test_a_short_transcript_is_not_judged():
+    assert not lacks_punctuation(_segments("one two three four five", 20), "en")  # 100 words
+
+
+def test_languages_written_without_punctuation_are_not_judged():
+    text = " ".join(["คำ"] * 200)
+
+    assert not lacks_punctuation(_segments(text), "th")
+
+
+def test_full_width_punctuation_counts():
+    text = " ".join(["你好，我们走吧。"] * 200)
+
+    assert not lacks_punctuation(_segments(text), "zh")

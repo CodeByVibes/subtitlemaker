@@ -78,6 +78,7 @@ class ModelConfig:
     vad_filter: bool = True
     condition_on_previous_text: bool = True
     word_timestamps: bool = True  # time cues from words, not whole segments
+    initial_prompt: str = ""  # text Whisper continues from, sets the style (--prompt)
 
     def __post_init__(self) -> None:
         if self.device not in DEVICES:

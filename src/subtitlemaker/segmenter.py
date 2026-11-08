@@ -527,6 +527,37 @@ def _apply_timing(cues: Sequence[Cue], style: SubtitleStyle) -> list[Cue]:
     return timed
 
 
+# Sentence and clause marks in the scripts Whisper commonly writes.
+_PUNCTUATION = frozenset(".,!?;:…。，、！？؟،।")
+
+# Languages normally written without them.
+_UNPUNCTUATED_LANGUAGES = frozenset({"th", "lo", "km", "my", "bo"})
+
+# Too little text to tell (about a minute of speech).
+_MIN_WORDS_TO_JUDGE = 150
+
+
+def lacks_punctuation(segments: Sequence[SegmentLike], language: str | None) -> bool:
+    """
+    True if a transcript has (almost) no punctuation: under one mark per 50 words.
+
+    Whisper can carry on in an unpunctuated style for minutes once it starts
+    in one, typically when a recording begins mid-sentence. Normal speech
+    has a mark every few words.
+    """
+
+    if language in _UNPUNCTUATED_LANGUAGES:
+        return False
+
+    text = " ".join(segment.text for segment in segments)
+    words = len(text.split())
+
+    if words < _MIN_WORDS_TO_JUDGE:
+        return False
+
+    return sum(ch in _PUNCTUATION for ch in text) * 50 < words
+
+
 def build_subtitles(
     segments: Iterable[SegmentLike], style: SubtitleStyle, language: str | None = None
 ) -> list[Cue]:

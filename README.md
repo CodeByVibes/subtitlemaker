@@ -98,6 +98,16 @@ By default Whisper detects the language from the start of each file. If it guess
 
 For audio that switches language, add `-m`, or list several languages (`-l en,sv`). The language is then re-detected for every segment. The list only switches this on: detection is not limited to the languages you name. Be aware that `-t translate` turns every segment into English.
 
+### Missing punctuation
+
+When a recording starts in the middle of a sentence, Whisper sometimes writes everything without punctuation or capitals ("come on come on come on randall"), and every subtitle then ends mid-sentence. subtitlemaker warns when this happens. Run it again with `--prompt` and a sentence or two in the same language and style:
+
+```bash
+subtitlemaker clip.mp4 --prompt "Hello, everyone. Let's begin."
+```
+
+A prompt can change other words too, so only use one when you need it.
+
 ### Subtitle style
 
 | Option              | Default | Meaning                                              |
@@ -139,6 +149,7 @@ compute_type = "auto"     # auto, float16, int8_float16, int8, float32, ...
 word_timestamps = true
 vad_filter = true
 condition_on_previous_text = true
+initial_prompt = ""       # same as --prompt
 ```
 
 Unknown keys and wrong types are reported with the file name, so typos don't pass silently.
