@@ -162,7 +162,7 @@ def _pause(previous: Token, token: Token) -> float:
 
 def _chunk(tokens: Sequence[Token], style: SubtitleStyle) -> list[list[Token]]:
     """
-    Split a segment's tokens into runs that each fit one cue.
+    Split tokens (of one segment, or a stream of several) into runs that each fit one cue.
 
     A token is `(text, start, end)` where the text carries its own leading
     space and the times may be None. A run only grows while it can still be
@@ -240,27 +240,26 @@ def _seconds(value: float | None) -> float:
     return float(value)
 
 
-def _segment_cues(segment: SegmentLike, style: SubtitleStyle) -> list[Cue]:
-    """Cues for one Whisper segment, with their speech timing and no padding."""
+def _timed_cues(tokens: Sequence[Token], style: SubtitleStyle) -> list[Cue]:
+    """Cues for a run of tokens that all have word timing."""
 
-    text = clean_text(segment.text)
+    return [
+        {
+            "start": _seconds(chunk[0][1]),
+            "end": max(_seconds(chunk[-1][2]), _seconds(chunk[0][1])),
+            "text": _join(chunk),
+        }
+        for chunk in _chunk(tokens, style)
+    ]
 
-    if not text:
-        return []
 
-    chunks = _chunk(_segment_tokens(segment, text), style)
+def _untimed_cues(
+    segment: SegmentLike, tokens: Sequence[Token], style: SubtitleStyle
+) -> list[Cue]:
+    """Cues for a segment without word timing: its duration shared out by text length."""
 
-    if all(token[1] is not None for chunk in chunks for token in chunk):
-        return [
-            {
-                "start": _seconds(chunk[0][1]),
-                "end": max(_seconds(chunk[-1][2]), _seconds(chunk[0][1])),
-                "text": _join(chunk),
-            }
-            for chunk in chunks
-        ]
+    chunks = _chunk(tokens, style)
 
-    # No word timing: share the segment's duration out by text length.
     start = float(segment.start)
     end = float(segment.end)
 
@@ -277,6 +276,49 @@ def _segment_cues(segment: SegmentLike, style: SubtitleStyle) -> list[Cue]:
         cues.append({"start": cursor, "end": chunk_end, "text": chunk_text})
 
         cursor = chunk_end
+
+    return cues
+
+
+def _speech_cues(segments: Iterable[SegmentLike], style: SubtitleStyle) -> list[Cue]:
+    """
+    Cues with their speech timing and no padding.
+
+    The words of consecutive segments with word timing are chunked as one
+    stream: Whisper's segment boundaries often fall mid-sentence (a segment
+    can end one word before the sentence does), so they are not used as cue
+    breaks. Pauses, line limits and punctuation decide where cues end. A
+    segment without word timing is chunked on its own and ends the stream.
+    """
+
+    cues: list[Cue] = []
+    stream: list[Token] = []
+
+    for segment in segments:
+
+        text = clean_text(segment.text)
+
+        if not text:
+            continue
+
+        tokens = _segment_tokens(segment, text)
+
+        if tokens[0][1] is None:
+            cues.extend(_timed_cues(stream, style))
+            stream = []
+
+            cues.extend(_untimed_cues(segment, tokens, style))
+            continue
+
+        # Keep the last word of one segment and the first of the next apart.
+        word, start, end = tokens[0]
+
+        if stream and not word[:1].isspace():
+            tokens[0] = (" " + word, start, end)
+
+        stream.extend(tokens)
+
+    cues.extend(_timed_cues(stream, style))
 
     return cues
 
@@ -332,16 +374,14 @@ def build_subtitles(segments: Iterable[SegmentLike], style: SubtitleStyle) -> li
 
     cues: list[Cue] = []
 
-    for segment in segments:
+    for cue in _speech_cues(segments, style):
 
-        for cue in _segment_cues(segment, style):
+        lines = split_into_lines(cue["text"], style)
 
-            lines = split_into_lines(cue["text"], style)
+        if not lines:
+            continue
 
-            if not lines:
-                continue
-
-            cue["text"] = "\n".join(lines)
-            cues.append(cue)
+        cue["text"] = "\n".join(lines)
+        cues.append(cue)
 
     return _apply_timing(cues, style)

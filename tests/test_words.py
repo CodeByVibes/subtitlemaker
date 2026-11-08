@@ -156,5 +156,59 @@ def test_blank_words_are_skipped_and_punctuation_is_tidied():
     assert cues[0]["text"] == "Hello, world!"
 
 
+def texts(cues):
+    return [c["text"].replace("\n", " ") for c in cues]
+
+
+def test_a_sentence_split_across_segments_stays_in_one_cue():
+    # Real case (large-v3, sitcom): Whisper ended a segment at "for" and put
+    # "you." in the next one. The times of "Musso's looking for" are from that run.
+    first = words_segment(
+        [("Musso's", 12.52, 12.92), ("looking", 12.92, 13.18), ("for", 13.18, 13.36)]
+    )
+    second = words_segment(evenly("you. Not a problem.", 13.36, 0.3))
+
+    cues = build_subtitles([first, second], STYLE)
+
+    assert texts(cues) == ["Musso's looking for you. Not a problem."]
+    assert cues[0]["start"] == 12.52
+
+
+def test_a_long_sentence_across_segments_breaks_at_the_sentence_end():
+    first = words_segment(evenly("And we moved four sets of notes from Nick Bush", 0.0, 0.3))
+    second = words_segment(
+        evenly("class. Right. Then the bell rang and everyone went home", 3.0, 0.3)
+    )
+
+    cues = build_subtitles([first, second], STYLE)
+
+    assert texts(cues)[0] == "And we moved four sets of notes from Nick Bush class. Right."
+
+
+def test_a_pause_between_segments_still_splits():
+    first = words_segment(evenly("hello there", 0.0))
+    second = words_segment(evenly("anyone home", 5.0))
+
+    assert texts(build_subtitles([first, second], STYLE)) == ["hello there", "anyone home"]
+
+
+def test_words_of_two_segments_do_not_run_together():
+    first = words_segment(evenly("looking for", 0.0))
+    second = make_segment("you.", 0.8, 1.2, [make_word("you.", 0.8, 1.2)])  # no leading space
+
+    assert texts(build_subtitles([first, second], STYLE)) == ["looking for you."]
+
+
+def test_a_segment_without_word_timing_is_a_boundary_and_order_is_kept():
+    before = words_segment(evenly("one two", 0.0))
+    untimed = make_segment(" three four", 0.8, 1.6, None)
+    after = words_segment(evenly("five six", 1.6))
+
+    cues = build_subtitles([before, untimed, after], STYLE)
+
+    assert texts(cues) == ["one two", "three four", "five six"]
+    assert [c["start"] for c in cues] == sorted(c["start"] for c in cues)
+
+
 def test_word_timestamps_are_on_by_default_in_the_model_config():
     assert ModelConfig().word_timestamps is True

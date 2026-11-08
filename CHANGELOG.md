@@ -15,6 +15,7 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 - A model that cannot be downloaded or loaded (no internet on first use, a mistyped repo id, a bad path) now ends in a short error with a hint instead of a traceback. A name such as `models/mine`, where `models` is a local folder, is reported as "model path not found" rather than looked up on Hugging Face.
 
 ### Changed
+- Subtitles are no longer cut where Whisper's segments end. Whisper often ends a segment mid-sentence, one word early ("Musso's looking for" / "you. Not a problem."), which made cues that stopped mid-sentence and many one-word cues. With word timestamps (the default), the words of neighbouring segments are now grouped together and cues end at pauses, sentence ends and the line limits. On a 5-minute sitcom clip, cues ending mid-sentence went from 27 to 4; over four 5-minute TV clips (English and Swedish), one- or two-word cues went from 40 to 15. Segments without word timing are handled as before.
 - The code is now fully type annotated and checked with `mypy --strict` in CI. There is no change in behaviour.
 - The command line code is split into smaller functions (parser, settings, output planning, model loading). There is no change in behaviour.
 - `ctranslate2` (4.6 up to, not including, 5) and `numpy` (1.22 or newer) are now declared dependencies. The code imports them directly, so they no longer depend on faster-whisper pulling them in. Earlier ctranslate2 builds need an executable stack and fail to load on current Linux systems.
