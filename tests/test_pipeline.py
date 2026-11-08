@@ -206,3 +206,32 @@ def test_normal_punctuation_gives_no_warning(run, fake_model, media, caplog):
     run(media)
 
     assert "almost no punctuation" not in caplog.text
+
+
+def test_hallucination_threshold_is_off_by_default(run, fake_model, media):
+    run(media, "-q")
+
+    assert fake_model.calls[0]["hallucination_silence_threshold"] is None
+
+
+def test_hallucination_threshold_flag_is_passed_to_whisper(run, fake_model, media):
+    run(media, "-q", "--hallucination-silence-threshold", "2")
+
+    assert fake_model.calls[0]["hallucination_silence_threshold"] == 2.0
+
+
+def test_hallucination_threshold_can_be_set_in_the_config_file(run, fake_model, media, tmp_path):
+    config = tmp_path / "c.toml"
+    config.write_text("[model]\nhallucination_silence_threshold = 2\n")  # an int is fine
+
+    run(media, "-q", "--config", config)
+
+    assert fake_model.calls[0]["hallucination_silence_threshold"] == 2.0
+
+
+@pytest.mark.parametrize("value", ["-1", "nan", "inf"])
+def test_invalid_hallucination_threshold_is_a_usage_error(run, fake_model, media, value):
+    with pytest.raises(SystemExit) as exit_info:
+        run(media, "--hallucination-silence-threshold", value)
+
+    assert exit_info.value.code == 2

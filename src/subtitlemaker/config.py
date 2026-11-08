@@ -79,10 +79,20 @@ class ModelConfig:
     condition_on_previous_text: bool = True
     word_timestamps: bool = True  # time cues from words, not whole segments
     initial_prompt: str = ""  # text Whisper continues from, sets the style (--prompt)
+    # Skip silences longer than this where Whisper seems to invent text
+    # (seconds; 0 = off). Needs word timestamps.
+    hallucination_silence_threshold: float = 0.0
 
     def __post_init__(self) -> None:
         if self.device not in DEVICES:
             raise ConfigError(f"device must be one of: {', '.join(DEVICES)}")
+
+        threshold = self.hallucination_silence_threshold
+
+        if not math.isfinite(threshold) or threshold < 0:
+            raise ConfigError(
+                "hallucination_silence_threshold must be a finite number, 0 or more"
+            )
 
         for name in ("name", "compute_type"):
             if not getattr(self, name).strip():

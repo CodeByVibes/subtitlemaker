@@ -108,6 +108,8 @@ subtitlemaker clip.mp4 --prompt "Hello, everyone. Let's begin."
 
 A prompt can change other words too, so only use one when you need it.
 
+If Whisper writes text during long silences or music that nobody says, try `--hallucination-silence-threshold 2`. Whisper then skips silences longer than 2 seconds where its text looks invented. It needs word timestamps, which are on by default.
+
 ### Subtitle style
 
 | Option              | Default | Meaning                                              |
@@ -150,6 +152,7 @@ word_timestamps = true
 vad_filter = true
 condition_on_previous_text = true
 initial_prompt = ""       # same as --prompt
+hallucination_silence_threshold = 0   # seconds, 0 = off
 ```
 
 Unknown keys and wrong types are reported with the file name, so typos don't pass silently.

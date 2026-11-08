@@ -170,6 +170,9 @@ def _process_file(
         multilingual=options.multilingual,
         condition_on_previous_text=options.condition_on_previous_text,
         initial_prompt=options.model_config.initial_prompt or None,
+        hallucination_silence_threshold=(
+            options.model_config.hallucination_silence_threshold or None
+        ),
         language_detection_segments=options.detect_segments,
         language_detection_threshold=options.detect_threshold,
     )
@@ -430,6 +433,17 @@ def _build_parser() -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
+        "--hallucination-silence-threshold",
+        type=float,
+        metavar="SEC",
+        help=(
+            "Skip silences longer than this where Whisper seems to "
+            "invent text, e.g. 2; needs word timestamps "
+            "(default: 0, off)"
+        ),
+    )
+
+    parser.add_argument(
         "--config",
         metavar="FILE",
         help=(
@@ -621,6 +635,7 @@ def _resolve_settings(args: argparse.Namespace, parser: argparse.ArgumentParser)
                 ("compute_type", "compute_type"),
                 ("word_timestamps", "word_timestamps"),
                 ("prompt", "initial_prompt"),
+                ("hallucination_silence_threshold", "hallucination_silence_threshold"),
             )
             if getattr(args, option) is not None
         }
