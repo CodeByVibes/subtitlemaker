@@ -183,6 +183,67 @@ def _best_break(tokens: Sequence[Token]) -> int:
     return clause if clause is not None else len(tokens)
 
 
+def _speakers(tokens: Sequence[Token]) -> int:
+    """How many speakers the joined tokens hold, counting dialogue dashes."""
+
+    return len(_speaker_changes(_join(tokens).split())) + 1
+
+
+def _speaker_start(tokens: Sequence[Token], speaker: int) -> int:
+    """
+    Index of the token where speaker number `speaker` (2 or 3) starts.
+
+    The text is checked as joined, because Whisper may give the dash as a
+    token of its own ("–" then "Det"): a bare dash just before is included.
+    """
+
+    cut = next(k for k in range(1, len(tokens) + 1) if _speakers(tokens[:k]) >= speaker) - 1
+
+    while cut > 0 and tokens[cut - 1][0].strip() in _DASHES:
+        cut -= 1
+
+    return cut
+
+
+def _speaker_cut(tokens: Sequence[Token], style: SubtitleStyle) -> int | None:
+    """
+    Where to end a run so that it holds at most two speakers, each on a line
+    of their own. None if `tokens` can stay together.
+
+    Two lines can show two speakers, a third cannot. Two speakers only share
+    a cue if each one's words fit on one line; otherwise the line break would
+    have to fall inside one speaker's sentence.
+    """
+
+    words = _join(tokens).split()
+    changes = sorted(_speaker_changes(words))
+
+    if not changes:
+        return None
+
+    if len(changes) > 1:
+        return _speaker_start(tokens, 3)
+
+    first = changes[0]
+
+    if style.max_lines < 2 or (
+        len(" ".join(words[:first])) <= style.max_line_length
+        and len(" ".join(words[first:])) <= style.max_line_length
+    ):
+        return None
+
+    return _speaker_start(tokens, 2)
+
+
+def _speech_time(first: Token, next_token: Token) -> float:
+    """Seconds from `first` starting to `next_token` starting; inf without timing."""
+
+    if first[1] is None or next_token[1] is None:
+        return float("inf")
+
+    return next_token[1] - first[1]
+
+
 def _pause(previous: Token, token: Token) -> float:
     """Seconds of silence between two tokens; 0 if either has no timing."""
 
@@ -204,6 +265,9 @@ def _chunk(tokens: Sequence[Token], style: SubtitleStyle) -> list[list[Token]]:
     A run also ends at a long silence: Whisper sometimes puts words that are
     many seconds apart into one segment, and one cue would then show the
     later words long before they are spoken.
+
+    And a run holds at most two speakers (see `_speaker_cut`), each with a
+    line of their own.
     """
 
     chunks: list[list[Token]] = []
@@ -215,6 +279,17 @@ def _chunk(tokens: Sequence[Token], style: SubtitleStyle) -> list[list[Token]]:
             chunks.append(current)
             current = [token]
             continue
+
+        cut = _speaker_cut(current + [token], style) if current else None
+
+        # Not if the cue before the cut would be too short to read: three
+        # quick speakers in one cue beat a cue that flashes past.
+        if cut and _speech_time(current[0], (current + [token])[cut]) < style.min_duration:
+            cut = None
+
+        if cut:
+            chunks.append(current[:cut])
+            current = current[cut:]
 
         if not current or _fits(_join(current + [token]), style):
             current.append(token)

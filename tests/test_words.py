@@ -231,3 +231,67 @@ def test_collapsed_word_times_do_not_make_an_invisible_cue():
 
     assert all(c["end"] - c["start"] >= 0.5 for c in cues)
     assert not any(c["text"].replace("\n", " ") == "You don't have to tell me, but" for c in cues)
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        # Real cases (Swedish drama, large-v3): three speakers used to share a cue.
+        ("–Absolut. –Varsågod. –Varsågod.", ["–Absolut. –Varsågod.", "–Varsågod."]),
+        (
+            "då, ha det bra. –Tack för idag. Vi ses, mom. –Det gör vi.",
+            ["då, ha det bra. –Tack för idag. Vi ses, mom.", "–Det gör vi."],
+        ),
+        (
+            "–För att vi... –Vadå? –Kan vi inte snacka? –Nej, snälla.",
+            ["–För att vi... –Vadå?", "–Kan vi inte snacka? –Nej, snälla."],
+        ),
+    ],
+)
+def test_a_cue_holds_at_most_two_speakers(text, expected):
+    cues = build_subtitles([words_segment(evenly(text, 0.0, 0.6))], STYLE)
+
+    assert texts(cues) == expected
+
+
+def test_a_dash_given_as_its_own_word_moves_with_its_speaker():
+    words = [
+        make_word(" –Hej.", 0.0, 0.5),
+        make_word(" –Hej.", 0.6, 1.1),
+        make_word(" –", 1.2, 1.25),
+        make_word("Tja.", 1.25, 1.6),
+    ]
+    cues = build_subtitles([make_segment(" –Hej. –Hej. –Tja.", 0.0, 1.6, words)], STYLE)
+
+    assert texts(cues) == ["–Hej. –Hej.", "–Tja."]
+    assert cues[1]["start"] == 1.2
+
+
+def test_two_speakers_stay_in_one_cue():
+    cues = build_subtitles([words_segment(evenly("–Ja? –Vill du veta vad jag heter?", 0.0))], STYLE)
+
+    assert texts(cues) == ["–Ja? –Vill du veta vad jag heter?"]
+
+
+def test_a_quick_third_speaker_stays_rather_than_flash_a_cue_past():
+    # Real case (Swedish drama, large-v3): three speakers inside 1.9 s. Ending
+    # the cue before the third left "–Absolut. –Varsågod." up for 0.53 s.
+    words = [("–Absolut.", 298.60, 298.92), ("–Varsågod.", 298.94, 299.18)]
+    words += [("–Varsågod.", 299.18, 299.98)]
+
+    cues = build_subtitles([words_segment(words)], STYLE)
+
+    assert texts(cues) == ["–Absolut. –Varsågod. –Varsågod."]
+
+
+def test_a_speaker_too_long_for_a_line_starts_a_new_cue():
+    # Real case (Swedish drama, large-v3): the first speaker needs 44
+    # characters, so a shared cue would break a line inside that sentence.
+    text = "–Torsdag, fredag, lördag. Det borde vi lösa. –Jag känner mig fan manipulerad."
+
+    cues = build_subtitles([words_segment(evenly(text, 0.0, 0.4))], STYLE)
+
+    assert texts(cues) == [
+        "–Torsdag, fredag, lördag. Det borde vi lösa.",
+        "–Jag känner mig fan manipulerad.",
+    ]
