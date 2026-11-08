@@ -1,9 +1,9 @@
 1
-00:00:00,900 --> 00:00:02,000
+00:00:00,900 --> 00:00:02,397
 Good morning everyone.
 
 2
-00:00:04,600 --> 00:00:07,547
+00:00:04,600 --> 00:00:08,047
 Yes. I really think we should start.
 
 3
@@ -16,15 +16,15 @@ so what we are going to do today is look
 at how the whole system fits together and
 
 5
-00:00:16,600 --> 00:00:18,140
+00:00:16,600 --> 00:00:18,640
 why each part matters
 
 6
-00:00:20,000 --> 00:00:22,340
+00:00:20,000 --> 00:00:22,840
 We waited for the answer and
 
 7
-00:00:24,900 --> 00:00:26,840
+00:00:24,900 --> 00:00:27,340
 then it finally came back
 
 8
@@ -33,29 +33,29 @@ This segment has no word level timing
 so its long text is shared out by length
 
 9
-00:00:38,832 --> 00:00:41,000
+00:00:38,832 --> 00:00:41,500
 across the cues that it needs
 
 10
-00:00:43,000 --> 00:00:46,348
+00:00:43,000 --> 00:00:46,848
 The first speaker is still talking here.
 Sorry to interrupt you.
 
 11
-00:00:50,000 --> 00:00:53,555
+00:00:50,000 --> 00:00:54,055
 Jag litar inte riktigt på dig,
 men nu gör vi det här.
 
 12
-00:00:56,000 --> 00:00:57,540
+00:00:56,000 --> 00:00:58,040
 שלום, מה שלומך היום?
 
 13
-00:01:00,000 --> 00:01:04,055
+00:01:00,000 --> 00:01:04,555
 Thank you all for listening.
 Someone left the keys in the car
 
 14
-00:01:14,500 --> 00:01:16,555
+00:01:14,500 --> 00:01:17,055
 so we all had to walk home
 

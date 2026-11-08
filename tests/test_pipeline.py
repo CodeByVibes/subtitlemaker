@@ -13,7 +13,7 @@ def media(tmp_path):
 
 
 def test_cue_follows_the_words_not_the_padded_segment(run, fake_model, media):
-    assert run(str(media), "-q") == 0
+    assert run(str(media), "-q", "--linger", "0") == 0  # speech timing only
 
     srt = (media.with_suffix(".srt")).read_text(encoding="utf-8")
     assert srt == "1\n00:00:01,000 --> 00:00:02,400\nHello world.\n\n"
@@ -26,7 +26,7 @@ def test_word_timestamps_are_requested_by_default(run, fake_model, media):
 
 
 def test_no_word_timestamps_flag_falls_back_to_segment_timing(run, fake_model, media):
-    run(str(media), "-q", "--no-word-timestamps")
+    run(str(media), "-q", "--no-word-timestamps", "--linger", "0")
 
     assert fake_model.calls[0]["word_timestamps"] is False
     assert media.with_suffix(".srt").read_text().startswith("1\n00:00:00,000 --> 00:00:03,000")
@@ -109,5 +109,28 @@ def test_max_pause_can_be_set_in_the_config_file(run, fake_model, media, tmp_pat
 def test_invalid_max_pause_is_a_usage_error(run, fake_model, media):
     with pytest.raises(SystemExit) as exit_info:
         run(media, "--max-pause", "0")
+
+    assert exit_info.value.code == 2
+
+
+def test_linger_can_be_set_in_the_config_file(run, fake_model, media, tmp_path):
+    config = tmp_path / "c.toml"
+    config.write_text("[style]\nlinger = 0.2\n")
+
+    run(media, "-q", "--config", config)
+
+    assert "00:00:01,000 --> 00:00:02,600" in media.with_suffix(".srt").read_text()
+
+
+def test_linger_flag_overrides_the_default(run, fake_model, media):
+    run(media, "-q", "--linger", "1")
+
+    assert "00:00:01,000 --> 00:00:03,400" in media.with_suffix(".srt").read_text()
+
+
+@pytest.mark.parametrize("flag", ["--linger", "--close-gap"])
+def test_negative_linger_or_close_gap_is_a_usage_error(run, fake_model, media, flag):
+    with pytest.raises(SystemExit) as exit_info:
+        run(media, flag, "-1")
 
     assert exit_info.value.code == 2

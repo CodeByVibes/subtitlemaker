@@ -30,6 +30,8 @@ class SubtitleStyle:
     max_duration: float = 7.0  # Maximum subtitle duration (seconds)
     min_gap: float = 0.05  # Minimum gap between subtitles (seconds)
     max_pause: float = 1.0  # Silence between two words that starts a new subtitle (seconds)
+    linger: float = 0.5  # Time a subtitle stays up after its speech ends, if free (seconds)
+    close_gap: float = 0.5  # A shorter gap between two subtitles is closed (seconds)
 
     def __post_init__(self) -> None:
         if not isinstance(self.max_line_length, int) or self.max_line_length < 1:
@@ -39,7 +41,10 @@ class SubtitleStyle:
             raise ConfigError("max_lines must be 1 or 2")
 
         # nan compares False with everything, so "<= 0" alone lets it through.
-        for name in ("max_cps", "min_duration", "max_duration", "max_pause", "min_gap"):
+        for name in (
+            "max_cps", "min_duration", "max_duration", "max_pause", "min_gap",
+            "linger", "close_gap",
+        ):
             if not math.isfinite(getattr(self, name)):
                 raise ConfigError(f"{name} must be a finite number")
 
@@ -47,8 +52,9 @@ class SubtitleStyle:
             if getattr(self, name) <= 0:
                 raise ConfigError(f"{name} must be greater than 0")
 
-        if self.min_gap < 0:
-            raise ConfigError("min_gap must not be negative")
+        for name in ("min_gap", "linger", "close_gap"):
+            if getattr(self, name) < 0:
+                raise ConfigError(f"{name} must not be negative")
 
         if self.min_duration > self.max_duration:
             raise ConfigError("min_duration must not be greater than max_duration")

@@ -7,7 +7,7 @@ Good morning everyone.
 Yes.
 
 3
-00:00:05,500 --> 00:00:07,567
+00:00:05,500 --> 00:00:08,047
 I really think we should start.
 
 4
@@ -15,15 +15,15 @@ I really think we should start.
 Right.
 
 5
-00:00:09,400 --> 00:00:12,540
+00:00:09,400 --> 00:00:12,550
 so what we are going to do today
 
 6
-00:00:12,600 --> 00:00:15,340
+00:00:12,600 --> 00:00:15,350
 is look at how the whole system
 
 7
-00:00:15,400 --> 00:00:17,740
+00:00:15,400 --> 00:00:17,750
 fits together and why each part
 
 8
@@ -31,11 +31,11 @@ fits together and why each part
 matters
 
 9
-00:00:20,000 --> 00:00:22,340
+00:00:20,000 --> 00:00:22,840
 We waited for the answer and
 
 10
-00:00:24,900 --> 00:00:26,840
+00:00:24,900 --> 00:00:27,340
 then it finally came back
 
 11
@@ -51,7 +51,7 @@ timing so its long text is
 shared out by length across the
 
 14
-00:00:39,629 --> 00:00:41,129
+00:00:39,629 --> 00:00:41,500
 cues that it needs
 
 15
@@ -63,7 +63,7 @@ The first speaker is still
 talking here.
 
 17
-00:00:45,000 --> 00:00:46,533
+00:00:45,000 --> 00:00:46,848
 Sorry to interrupt you.
 
 18
@@ -71,22 +71,22 @@ Sorry to interrupt you.
 Jag litar inte riktigt på dig,
 
 19
-00:00:51,800 --> 00:00:53,555
+00:00:51,800 --> 00:00:54,055
 men nu gör vi det här.
 
 20
-00:00:56,000 --> 00:00:57,540
+00:00:56,000 --> 00:00:58,040
 שלום, מה שלומך היום?
 
 21
-00:01:00,000 --> 00:01:01,867
+00:01:00,000 --> 00:01:01,950
 Thank you all for listening.
 
 22
-00:01:02,000 --> 00:01:04,133
+00:01:02,000 --> 00:01:04,555
 Someone left the keys in the car
 
 23
-00:01:14,500 --> 00:01:16,555
+00:01:14,500 --> 00:01:17,055
 so we all had to walk home
 

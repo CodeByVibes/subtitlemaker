@@ -525,6 +525,26 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Minimum gap between subtitles (default: 0.05)",
     )
 
+    style_group.add_argument(
+        "--linger",
+        type=float,
+        metavar="SEC",
+        help=(
+            "Keep a subtitle up this long after its speech ends, "
+            "if the time is free; 0 turns it off (default: 0.5)"
+        ),
+    )
+
+    style_group.add_argument(
+        "--close-gap",
+        type=float,
+        metavar="SEC",
+        help=(
+            "Close a gap between two subtitles that is shorter than "
+            "this, so text does not flicker; 0 turns it off (default: 0.5)"
+        ),
+    )
+
     return parser
 
 
@@ -744,6 +764,8 @@ def _load_model_for_run(
     log.debug("  Max duration:     %ss", style.max_duration)
     log.debug("  Minimum gap:      %ss", style.min_gap)
     log.debug("  Max pause:        %ss", style.max_pause)
+    log.debug("  Linger:           %ss", style.linger)
+    log.debug("  Close gaps under: %ss", style.close_gap)
 
     log.info("Loading Whisper model...")
 

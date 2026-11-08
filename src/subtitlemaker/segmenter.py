@@ -330,11 +330,15 @@ def _apply_timing(cues: Sequence[Cue], style: SubtitleStyle) -> list[Cue]:
     In order, for every cue:
       1. It starts when its speech starts, unless the previous cue is still
          up (only possible when source segments overlap).
-      2. It is held at least `min_duration` and long enough to read at
-         `max_cps`, but never longer than `max_duration`.
+      2. It stays up `linger` after its speech ends, at least `min_duration`
+         and long enough to read at `max_cps`, but never longer than
+         `max_duration`.
       3. It must end `min_gap` before the next cue's speech starts. This wins
-         over rule 2: readability padding never delays or overlaps the next
-         cue, so a very short gap can leave a cue under `min_duration`.
+         over rule 2: padding never delays or overlaps the next cue, so a
+         very short gap can leave a cue under `min_duration`.
+      4. If that leaves a gap shorter than `close_gap` before the next cue,
+         it stays up until `min_gap` before the next cue instead, so the
+         text does not flicker off and on (still capped by `max_duration`).
     """
 
     timed: list[Cue] = []
@@ -350,15 +354,22 @@ def _apply_timing(cues: Sequence[Cue], style: SubtitleStyle) -> list[Cue]:
         plain = cue["text"].replace("\n", " ")
 
         wanted = max(
-            cue["end"],
+            cue["end"] + style.linger,
             start + style.min_duration,
             start + len(plain) / style.max_cps,
         )
 
-        end = min(wanted, start + style.max_duration)
+        cap = start + style.max_duration
+        end = min(wanted, cap)
 
         if i + 1 < len(cues):
-            end = min(end, cues[i + 1]["start"] - style.min_gap)
+            next_start = cues[i + 1]["start"]
+            latest = next_start - style.min_gap
+
+            end = min(end, latest)
+
+            if next_start - end < style.close_gap:
+                end = max(end, min(latest, cap))
 
         end = max(end, start + _MIN_VISIBLE)
 

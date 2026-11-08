@@ -41,7 +41,7 @@ def test_cue_runs_from_first_to_last_word_not_the_padded_segment():
 
     assert len(cues) == 1
     assert cues[0]["start"] == 1.0
-    assert cues[0]["end"] == pytest.approx(3.0)
+    assert cues[0]["end"] == pytest.approx(3.0 + STYLE.linger)
 
 
 def test_split_points_use_real_word_times_not_character_counts():
@@ -106,7 +106,7 @@ def test_segments_without_words_use_segment_timing(words):
     cues = build_subtitles([segment], STYLE)
 
     assert cues[0]["start"] == 2.0
-    assert cues[0]["end"] == pytest.approx(4.0)
+    assert cues[0]["end"] == pytest.approx(4.0 + STYLE.linger)
 
 
 def test_words_that_disagree_with_the_text_are_ignored():

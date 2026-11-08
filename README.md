@@ -109,8 +109,10 @@ For audio that switches language, add `-m`, or list several languages (`-l en,sv
 | `--max-duration`    | 7.0     | Longest time a subtitle stays on screen (seconds).   |
 | `--min-gap`         | 0.05    | Smallest gap between two subtitles (seconds).        |
 | `--max-pause`       | 1.0     | Silence between two words that starts a new subtitle (seconds). |
+| `--linger`          | 0.5     | Time a subtitle stays up after its speech ends, if the time is free (seconds). 0 turns it off. |
+| `--close-gap`       | 0.5     | A gap between two subtitles shorter than this is closed, so text doesn't flicker off and on (seconds). 0 turns it off. |
 
-Timing follows the speech. A subtitle appears when its first word is spoken. If it would be too short or too quick to read, it is held longer, but only into free time: it never delays or overlaps the next subtitle. If two lines are spoken too close together, the first one is allowed to be shorter than `--min-duration`. A long silence in the middle of a sentence (a laugh track, music) starts a new subtitle, so words are never shown long before they are spoken.
+Timing follows the speech. A subtitle appears when its first word is spoken and stays up a little after the last one (`--linger`). If it would be too short or too quick to read, it is held longer, but only into free time: it never delays or overlaps the next subtitle. When the next subtitle follows within `--close-gap`, the first one stays up until just before it (`--min-gap`) instead of blinking off. If two lines are spoken too close together, the first one is allowed to be shorter than `--min-duration`. A long silence in the middle of a sentence (a laugh track, music) starts a new subtitle, so words are never shown long before they are spoken.
 
 ### Config file
 
@@ -125,6 +127,8 @@ min_duration = 1.0
 max_duration = 6.0
 min_gap = 0.05
 max_pause = 1.0
+linger = 0.5
+close_gap = 0.5
 
 [model]
 name = "turbo"            # auto, a size, a Hugging Face repo id or a path

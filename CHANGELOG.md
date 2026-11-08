@@ -4,6 +4,10 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Added
+- `--linger` (and `linger` in the `[style]` section of the config file): a subtitle stays up this long after its speech ends, if the time is free. The default is 0.5 seconds; before, a subtitle could vanish the instant the last word ended.
+- `--close-gap` (and `close_gap`): when the gap to the next subtitle would be shorter than this, the subtitle stays up until `--min-gap` before the next one, so text doesn't flicker off and on between lines of dialogue. The default is 0.5 seconds. `--max-duration` is still a hard limit. On four 5-minute TV clips this removed 40 of 42 gaps between 0.06 and 0.5 s (the other two cues are at the 7 s limit) and cut subtitles faster than 20 characters per second from 36 to 25. Setting both to 0 turns them off.
+
 ### Fixed
 - Subtitle files are written to a temporary file and moved into place when complete, so a crash or full disk can no longer leave a truncated file that `--skip-existing` would treat as done. An existing file stays untouched if writing fails.
 - A config file with a section that is not a table (`style = 5`), an unreadable config file, or a folder given to `--config` now gives a usage error with the file name instead of a traceback.

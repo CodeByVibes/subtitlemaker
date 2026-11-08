@@ -58,10 +58,10 @@ def test_cue_is_extended_to_reading_speed_when_there_is_room(segment):
     assert cues[0]["end"] - cues[0]["start"] == pytest.approx(4.0)
 
 
-def test_speech_end_is_kept_when_longer_than_needed(segment):
+def test_speech_end_plus_linger_is_kept_when_longer_than_needed(segment):
     cues = build_subtitles([segment("Hello.", 0.0, 3.5)], STYLE)
 
-    assert cues[0]["end"] == pytest.approx(3.5)
+    assert cues[0]["end"] == pytest.approx(3.5 + STYLE.linger)
 
 
 def test_max_duration_is_a_hard_cap(segment):
@@ -135,3 +135,67 @@ def test_a_cue_is_never_shown_for_less_than_a_tenth_of_a_second(segment):
 
     assert cues[0]["end"] - cues[0]["start"] == pytest.approx(0.1)
     assert cues[1]["start"] == pytest.approx(cues[0]["end"] + STYLE.min_gap)
+
+
+QUIET = SubtitleStyle(linger=0.0)  # isolates gap closing from the linger
+
+
+def test_cue_lingers_after_its_speech_when_there_is_room(segment):
+    cues = build_subtitles([segment("Hello there friend.", 0.0, 2.0)], STYLE)
+
+    assert cues[0]["end"] == pytest.approx(2.0 + STYLE.linger)
+
+
+def test_linger_never_delays_or_overlaps_the_next_cue(segment):
+    cues = build_subtitles(
+        [segment("Hello there friend.", 0.0, 2.0), segment("Hi.", 2.2, 3.0)], STYLE
+    )
+
+    assert cues[1]["start"] == 2.2
+    assert cues[0]["end"] == pytest.approx(2.2 - STYLE.min_gap)
+
+
+def test_linger_zero_ends_at_the_speech(segment):
+    cues = build_subtitles([segment("Hello there friend.", 0.0, 2.0)], QUIET)
+
+    assert cues[0]["end"] == pytest.approx(2.0)
+
+
+def test_a_short_gap_is_closed(segment):
+    cues = build_subtitles(
+        [segment("Hello there friend.", 0.0, 2.0), segment("Hi.", 2.3, 3.0)], QUIET
+    )
+
+    assert cues[0]["end"] == pytest.approx(2.3 - QUIET.min_gap)
+
+
+def test_a_gap_of_close_gap_or_more_stays_open(segment):
+    cues = build_subtitles(
+        [segment("Hello there friend.", 0.0, 2.0), segment("Hi.", 2.5, 3.0)], QUIET
+    )  # exactly 0.5s
+
+    assert cues[0]["end"] == pytest.approx(2.0)
+
+
+def test_close_gap_zero_turns_it_off(segment):
+    style = SubtitleStyle(linger=0.0, close_gap=0.0)
+    cues = build_subtitles(
+        [segment("Hello there friend.", 0.0, 2.0), segment("Hi.", 2.1, 3.0)], style
+    )
+
+    assert cues[0]["end"] == pytest.approx(2.0)
+
+
+def test_closing_a_gap_respects_max_duration(segment):
+    cues = build_subtitles(
+        [segment("Hello there friend.", 0.0, 6.9), segment("Hi.", 7.3, 8.0)], QUIET
+    )
+
+    assert cues[0]["end"] == pytest.approx(STYLE.max_duration)
+
+
+@pytest.mark.parametrize("name", ["linger", "close_gap"])
+@pytest.mark.parametrize("value", [-0.1, float("nan"), float("inf")])
+def test_linger_and_close_gap_must_be_finite_and_not_negative(name, value):
+    with pytest.raises(ConfigError, match=name):
+        SubtitleStyle(**{name: value})
