@@ -4,6 +4,8 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-08
+
 ### Added
 - `--prompt TEXT` (and `initial_prompt` in the `[model]` section of the config file): text Whisper continues from. When a recording starts mid-sentence, Whisper can write minutes of text with no punctuation or capitals; a punctuated prompt fixes that. On three such 5-minute clips of a sitcom, punctuation went from 0–7% of words to 20–27%, the same as the rest of the episode. Off by default: on a Swedish programme with broadcast subtitles to compare against, prompts changed the word error rate by −1.4 to +6.4 points, with no prompt reliably better.
 - `--hallucination-silence-threshold SEC` (and `hallucination_silence_threshold` in `[model]`): passes faster-whisper's option of the same name, which skips long silences where the text looks invented. Off by default. Against SVT's own subtitles for a Swedish programme (four 5-minute windows) a value of 2 never made the word error rate worse and lowered it from 31.7% to 27.8% in one window; on an English sitcom it changed some wording either way.
@@ -71,7 +73,8 @@ First public release. It grew out of a single prototype script.
 - The GPU libraries are loaded without re-launching the Python process, so `python -m subtitlemaker` works.
 - A GPU without the CUDA 12 libraries no longer ends in a traceback in the middle of a run.
 
-[Unreleased]: https://github.com/CodeByVibes/subtitlemaker/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/CodeByVibes/subtitlemaker/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/CodeByVibes/subtitlemaker/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/CodeByVibes/subtitlemaker/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/CodeByVibes/subtitlemaker/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/CodeByVibes/subtitlemaker/releases/tag/v0.1.0
