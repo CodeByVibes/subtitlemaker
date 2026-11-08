@@ -134,3 +134,29 @@ def test_negative_linger_or_close_gap_is_a_usage_error(run, fake_model, media, f
         run(media, flag, "-1")
 
     assert exit_info.value.code == 2
+
+
+def _either_or(fake_model):
+    text = "Either you work for the system or you make the system work for you."
+    words = [make_word(" " + w, i * 0.3, i * 0.3 + 0.25) for i, w in enumerate(text.split())]
+    fake_model.segments = [make_segment(" " + text, 0.0, 5.0, words)]
+
+
+@pytest.mark.parametrize(
+    ("language", "extra", "line_one"),
+    [
+        ("en", [], "Either you work for the system\n"),  # English list: not "or" last
+        ("sv", [], "Either you work for the system or\n"),  # Swedish list has no "or"
+        ("sv", ["-t", "translate"], "Either you work for the system\n"),  # output is English
+        ("en", ["-m"], "Either you work for the system or\n"),  # mixed: no list
+    ],
+)
+def test_line_breaks_use_the_language_of_the_subtitles(
+    run, fake_model, media, language, extra, line_one
+):
+    _either_or(fake_model)
+    fake_model.language = language
+
+    run(media, "-q", *extra)
+
+    assert line_one in media.with_suffix(".srt").read_text()

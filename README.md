@@ -114,7 +114,7 @@ For audio that switches language, add `-m`, or list several languages (`-l en,sv
 
 Timing follows the speech. A subtitle appears when its first word is spoken and stays up a little after the last one (`--linger`). If it would be too short or too quick to read, it is held longer, but only into free time: it never delays or overlaps the next subtitle. When the next subtitle follows within `--close-gap`, the first one stays up until just before it (`--min-gap`) instead of blinking off.
 
-Lines are broken at a sentence end where possible, then at a comma, and otherwise kept about equally long. In dialogue written with dashes ("–Ja? –Nej."), each speaker gets their own line, and a third speaker starts a new subtitle. If two lines are spoken too close together, the first one is allowed to be shorter than `--min-duration`. A long silence in the middle of a sentence (a laugh track, music) starts a new subtitle, so words are never shown long before they are spoken.
+Lines are broken at a sentence end where possible, then at a comma, and otherwise kept about equally long. Names stay on one line, and for English and Swedish a line doesn't end on a word like "the", "of" or "och" when there is a better place. In dialogue written with dashes ("–Ja? –Nej."), each speaker gets their own line, and a third speaker starts a new subtitle. If two lines are spoken too close together, the first one is allowed to be shorter than `--min-duration`. A long silence in the middle of a sentence (a laugh track, music) starts a new subtitle, so words are never shown long before they are spoken.
 
 ### Config file
 

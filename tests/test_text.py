@@ -154,3 +154,60 @@ def test_a_speaker_too_long_for_one_line_still_gives_valid_lines():
     assert len(lines) == 2
     assert all(0 < len(line) <= STYLE.max_line_length for line in lines)
     assert " ".join(lines) == text
+
+
+@pytest.mark.parametrize(
+    ("text", "language", "expected"),
+    [
+        # Real cases (large-v3): line 1 used to end on "or", "of" and "att".
+        (
+            "Either you work for the system or you make the system work for you.",
+            "en",
+            ["Either you work for the system", "or you make the system work for you."],
+        ),
+        (
+            "I've confiscated this tape of your little cheating escapade.",
+            "en",
+            ["I've confiscated this tape", "of your little cheating escapade."],
+        ),
+        (
+            "–Det är tuffare än att leva på pappas pengar.",
+            "sv",
+            ["–Det är tuffare än att leva", "på pappas pengar."],
+        ),
+    ],
+)
+def test_line_one_does_not_end_on_a_binding_word(text, language, expected):
+    assert split_into_lines(text, STYLE, language) == expected
+
+
+@pytest.mark.parametrize("language", [None, "de"])
+def test_no_word_list_for_an_unknown_or_mixed_language(language):
+    text = "Either you work for the system or you make the system work for you."
+
+    assert split_into_lines(text, STYLE, language)[0] == "Either you work for the system or"
+
+
+def test_pronouns_are_not_binding_words():
+    # "he" ends a clause here; the old prototype list pushed the break elsewhere.
+    text = "I've told him a thousand times he doesn't have to carry my books."
+
+    assert split_into_lines(text, STYLE, "en")[0].endswith("he")
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        # Real cases (sitcom, large-v3): the old scoring split both names.
+        (
+            "She was a Mona Lisa, a Sistine Chapel, a dog's playing poker,",
+            ["She was a Mona Lisa, a Sistine Chapel,", "a dog's playing poker,"],
+        ),
+        (
+            "We all went down to see Andrea Russell standing by the door.",
+            ["We all went down to see", "Andrea Russell standing by the door."],
+        ),
+    ],
+)
+def test_a_name_is_not_split_over_two_lines(text, expected):
+    assert split_into_lines(text, STYLE) == expected

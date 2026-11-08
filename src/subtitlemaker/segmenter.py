@@ -49,7 +49,40 @@ def _speaker_changes(words: Sequence[str]) -> set[int]:
     }
 
 
-def split_into_lines(text: str, style: SubtitleStyle) -> list[str]:
+# Words that belong with the word after them: ending line 1 on one splits an
+# article from its noun, a preposition from its object or a conjunction from
+# its clause ("the system or / you make"). Only articles, prepositions and
+# conjunctions, never pronouns or verbs, and only for languages checked on
+# real subtitles. Others get no penalty.
+_BINDING_WORDS = {
+    "en": frozenset(
+        "a an the and or but nor of to in on at for with from by into onto "
+        "about than if because whether".split()
+    ),
+    "sv": frozenset(
+        "en ett och eller men att i på av till för med från om som än utan "
+        "vid mot hos eftersom".split()
+    ),
+}
+
+# Penalty, in characters of imbalance, for a bad last word on line 1.
+_BINDING_PENALTY = 12
+
+
+def _splits_a_name(last: str, first: str) -> bool:
+    """True for two capitalised words in a row ("Andrea / Russell")."""
+
+    return (
+        last[:1].isupper()
+        and first[:1].isupper()
+        and last != "I"
+        and not last.endswith(_SENTENCE_END + _CLAUSE_END)
+    )
+
+
+def split_into_lines(
+    text: str, style: SubtitleStyle, language: str | None = None
+) -> list[str]:
     """
     Split subtitle into a maximum of `style.max_lines` lines.
 
@@ -59,7 +92,11 @@ def split_into_lines(text: str, style: SubtitleStyle) -> list[str]:
       speaker ("–Ja? –Vill du veta?"), even if the text fits on one line
     - balance line lengths
     - prefer a sentence end, then a clause boundary, at the end of line 1
+    - not end line 1 on an article, preposition or conjunction (for a
+      `language` with a word list) or in the middle of a name
     """
+
+    binding = _BINDING_WORDS.get(language or "", frozenset())
 
     words = text.split()
 
@@ -99,6 +136,9 @@ def split_into_lines(text: str, style: SubtitleStyle) -> list[str]:
 
         elif left.endswith(_CLAUSE_END):
             score -= 15
+
+        if words[i - 1].lower() in binding or _splits_a_name(words[i - 1], words[i]):
+            score += _BINDING_PENALTY
 
         if score < best_score:
             best_score = score
@@ -487,14 +527,21 @@ def _apply_timing(cues: Sequence[Cue], style: SubtitleStyle) -> list[Cue]:
     return timed
 
 
-def build_subtitles(segments: Iterable[SegmentLike], style: SubtitleStyle) -> list[Cue]:
-    """Convert Whisper segments into formatted subtitles."""
+def build_subtitles(
+    segments: Iterable[SegmentLike], style: SubtitleStyle, language: str | None = None
+) -> list[Cue]:
+    """
+    Convert Whisper segments into formatted subtitles.
+
+    `language` is the language of the subtitle text (a code such as "en"),
+    or None when unknown or mixed. It only affects where lines are broken.
+    """
 
     cues: list[Cue] = []
 
     for cue in _speech_cues(segments, style):
 
-        lines = split_into_lines(cue["text"], style)
+        lines = split_into_lines(cue["text"], style, language)
 
         if not lines:
             continue

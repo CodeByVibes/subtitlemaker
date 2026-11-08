@@ -220,7 +220,18 @@ def _process_file(
 
     log.info("Formatting subtitles...")
 
-    subtitles = build_subtitles(processed_segments, options.style)
+    # The language of the subtitle text, for line breaking: English when
+    # translating, unknown when it may change from segment to segment.
+    if options.multilingual:
+        text_language = None
+
+    elif options.task == "translate":
+        text_language = "en"
+
+    else:
+        text_language = info.language
+
+    subtitles = build_subtitles(processed_segments, options.style, text_language)
 
     log.info("Generated %d subtitle cues.", len(subtitles))
 
