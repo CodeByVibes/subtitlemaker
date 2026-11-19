@@ -9,13 +9,20 @@ from typing import Any
 from rich.console import Console
 
 from . import __version__
-from .config import DEVICES, ConfigError, ModelConfig, SubtitleStyle, load_config
-from .formats import DEFAULT_FORMAT, FORMATS, parse_formats
-from .languages import parse_language_argument
+from .config import DEVICES, ConfigError, ModelConfig, SubtitleStyle
+from .formats import DEFAULT_FORMAT, FORMATS
 from .log import LOGGER_NAME, setup_logging
-from .pipeline import Options, OutputError, process_file
+from .pipeline import OutputError, process_file
 from .planning import expand_inputs, plan_all_outputs
 from .progress import TranscriptionProgress
+from .settings import (
+    DEFAULT_DETECT_SEGMENTS,
+    DEFAULT_DETECT_THRESHOLD,
+    DEFAULT_TASK,
+    TASKS,
+    Settings,
+    resolve_settings,
+)
 
 log = logging.getLogger(LOGGER_NAME)
 
@@ -172,11 +179,8 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "-t",
         "--task",
-        choices=[
-            "transcribe",
-            "translate",
-        ],
-        default="transcribe",
+        choices=TASKS,
+        default=DEFAULT_TASK,
         help=(
             "transcribe = subtitles in the spoken language; "
             "translate = translate to English (default: transcribe)"
@@ -186,7 +190,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--detect-segments",
         type=int,
-        default=1,
+        default=DEFAULT_DETECT_SEGMENTS,
         metavar="N",
         help=(
             "Segments sampled for the initial "
@@ -197,7 +201,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--detect-threshold",
         type=float,
-        default=0.5,
+        default=DEFAULT_DETECT_THRESHOLD,
         metavar="P",
         help=(
             "Confidence needed to accept the "
@@ -390,20 +394,7 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-@dataclasses.dataclass(frozen=True)
-class _Settings:
-    """Everything decided from the command line and config file, before any work."""
-
-    style: SubtitleStyle
-    model_config: ModelConfig
-    formats: list[str]
-    languages: list[str]
-    language_hint: str | None
-    multilingual: bool
-    condition_on_previous_text: bool
-
-
-def _resolve_settings(args: argparse.Namespace, parser: argparse.ArgumentParser) -> _Settings:
+def _resolve_settings(args: argparse.Namespace, parser: argparse.ArgumentParser) -> Settings:
     """
     Combine defaults, the config file and the command line.
 
@@ -411,112 +402,46 @@ def _resolve_settings(args: argparse.Namespace, parser: argparse.ArgumentParser)
     the program through `parser.error` (a usage error, exit code 2).
     """
 
-    try:
-        style, model_config = load_config(args.config)
+    # These two are about the flags themselves, so the message names them.
+    if args.detect_segments < 1:
+        parser.error("--detect-segments must be at least 1")
 
-        overrides = {
-            field.name: getattr(args, field.name)
-            for field in dataclasses.fields(style)
-            if getattr(args, field.name) is not None
-        }
-
-        style = dataclasses.replace(style, **overrides)
-
-        # Command line option -> ModelConfig field
-        model_overrides = {
-            field: getattr(args, option)
-            for option, field in (
-                ("model", "name"),
-                ("device", "device"),
-                ("compute_type", "compute_type"),
-                ("word_timestamps", "word_timestamps"),
-                ("prompt", "initial_prompt"),
-                ("hallucination_silence_threshold", "hallucination_silence_threshold"),
-            )
-            if getattr(args, option) is not None
-        }
-
-        model_config = dataclasses.replace(model_config, **model_overrides)
-
-    except ConfigError as e:
-        parser.error(str(e))
-
-    # Output options
-
-    try:
-        formats = parse_formats(args.format)
-
-    except ValueError as e:
-        parser.error(str(e))
+    if not 0.0 < args.detect_threshold <= 1.0:
+        parser.error("--detect-threshold must be greater than 0 and at most 1")
 
     if args.output and args.output_dir:
         parser.error("-o/--output and -d/--output-dir cannot be combined")
 
-    # Language options
-
     try:
-        languages, listed_multilingual = (
-            parse_language_argument(
-                args.language
-            )
+        return resolve_settings(
+            config=args.config,
+            style={
+                field.name: getattr(args, field.name)
+                for field in dataclasses.fields(SubtitleStyle)
+            },
+            # Command line option -> ModelConfig field
+            model={
+                field: getattr(args, option)
+                for option, field in (
+                    ("model", "name"),
+                    ("device", "device"),
+                    ("compute_type", "compute_type"),
+                    ("word_timestamps", "word_timestamps"),
+                    ("prompt", "initial_prompt"),
+                    ("hallucination_silence_threshold", "hallucination_silence_threshold"),
+                )
+            },
+            formats=args.format,
+            task=args.task,
+            language=args.language,
+            multilingual=args.multilingual,
+            condition_on_previous_text=args.condition_on_previous_text,
+            detect_segments=args.detect_segments,
+            detect_threshold=args.detect_threshold,
         )
 
-    except ValueError as e:
+    except ConfigError as e:
         parser.error(str(e))
-
-    if args.detect_segments < 1:
-        parser.error(
-            "--detect-segments must be at least 1"
-        )
-
-    if not 0.0 < args.detect_threshold <= 1.0:
-        parser.error(
-            "--detect-threshold must be "
-            "greater than 0 and at most 1"
-        )
-
-    # More than one language code, or -m/--multilingual,
-    # means the language has to be decided again for every
-    # segment instead of once for the whole file.
-    multilingual = (
-        args.multilingual or listed_multilingual
-    )
-
-    # Whisper holds a single language token per decode, so a
-    # hint is only used when the language is fixed for the
-    # whole file. Leaving it unset also keeps the initial
-    # detection available for the report.
-    language_hint = (
-        None
-        if multilingual
-        else (languages[0] if languages else None)
-    )
-
-    if args.condition_on_previous_text is not None:
-
-        condition_on_previous_text = (
-            args.condition_on_previous_text
-        )
-
-    else:
-
-        # Text from the previous segment pulls the next one
-        # back towards the language it was written in, which
-        # fights per-segment language detection.
-        condition_on_previous_text = (
-            model_config.condition_on_previous_text
-            and not multilingual
-        )
-
-    return _Settings(
-        style=style,
-        model_config=model_config,
-        formats=formats,
-        languages=languages,
-        language_hint=language_hint,
-        multilingual=multilingual,
-        condition_on_previous_text=condition_on_previous_text,
-    )
 
 
 def _load_model_for_run(
@@ -649,7 +574,7 @@ def _run() -> int:
         loaded = _load_model_for_run(
             settings.model_config,
             settings.multilingual,
-            args.task,
+            settings.task,
             settings.style,
         )
 
@@ -658,17 +583,7 @@ def _run() -> int:
 
         model, model_config = loaded
 
-        options = Options(
-            style=settings.style,
-            model_config=model_config,
-            task=args.task,
-            languages=settings.languages,
-            language_hint=settings.language_hint,
-            multilingual=settings.multilingual,
-            condition_on_previous_text=settings.condition_on_previous_text,
-            detect_segments=args.detect_segments,
-            detect_threshold=args.detect_threshold,
-        )
+        options = settings.options(model_config)
 
         for index, file in enumerate(todo, start=1):
 
