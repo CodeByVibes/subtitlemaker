@@ -43,9 +43,12 @@ cuda = [
 ]
 # The desktop app. Essentials has everything a Widgets app needs; the larger
 # Addons package (e.g. QtMultimedia) is not required. 6.8 is the first
-# release that supports Python 3.13.
+# release that supports Python 3.13. Below 6.12: PySide6 6.12.0 leaks a
+# reference to None on every call that returns nothing, which aborts the
+# interpreter after a few thousand calls on Python 3.10 and 3.11 (3.12 and up
+# are immune). See tests/gui/test_pyside_health.py before raising the cap.
 gui = [
-    "PySide6-Essentials>=6.8",
+    "PySide6-Essentials>=6.8,<6.12",
 ]
 
 [project.scripts]
@@ -60,7 +63,7 @@ dev = [
     "pytest>=8",
     # The desktop app's tests; a developer gets the GUI without asking for it.
     "pytest-qt>=4.4",
-    "PySide6-Essentials>=6.8",
+    "PySide6-Essentials>=6.8,<6.12",
     "ruff>=0.6",
 ]
 

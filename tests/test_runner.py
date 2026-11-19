@@ -1,6 +1,7 @@
 """`JobRunner`: the background queue behind the desktop app, tested without any UI."""
 
 import gc
+import logging
 import threading
 import time
 import weakref
@@ -614,3 +615,142 @@ def test_a_runner_with_nothing_queued_is_idle(events):
 
     assert runner.join(timeout=WAIT) is True
     runner.shutdown()
+
+
+# --- the log: what the command line prints, the runner logs too -------------------------------
+
+
+def test_a_failed_file_is_logged_as_an_error(runner, settings, fake_model, tmp_path, caplog):
+    fake_model.fail["bad.mp3"] = ValueError("boom")
+
+    with caplog.at_level(logging.INFO, logger="subtitlemaker"):
+        runner.submit_many(
+            [(make_job(tmp_path, "bad.mp3"), settings), (make_job(tmp_path, "ok.mp3"), settings)]
+        )
+        finish(runner)
+
+    errors = [r for r in caplog.records if r.levelno == logging.ERROR]
+
+    assert len(errors) == 1  # once, not once per place it is reported
+    assert "failed to process" in errors[0].getMessage() and "boom" in errors[0].getMessage()
+
+
+def test_a_model_that_cannot_load_is_logged_for_each_file_that_needs_it(
+    events, settings, tmp_path, caplog
+):
+    both_queued = threading.Event()
+
+    def load(s):
+        assert both_queued.wait(WAIT)
+        raise ModelError("couldn't load model 'tiny': no network")
+
+    runner = JobRunner(events, load_model=load)
+
+    try:
+        with caplog.at_level(logging.INFO, logger="subtitlemaker"):
+            runner.submit_many(
+                [(make_job(tmp_path, "a.mp3"), settings), (make_job(tmp_path, "b.mp3"), settings)]
+            )
+            both_queued.set()
+            finish(runner)
+
+    finally:
+        runner.shutdown()
+
+    messages = [r.getMessage() for r in caplog.records if r.levelno == logging.ERROR]
+
+    assert messages == ["couldn't load model 'tiny': no network"] * 2
+
+
+def test_an_output_that_cannot_be_written_is_logged(runner, settings, tmp_path, caplog):
+    blocker = tmp_path / "blocker"
+    blocker.write_text("a file where a folder is needed")
+
+    with caplog.at_level(logging.INFO, logger="subtitlemaker"):
+        runner.submit(make_job(tmp_path, "a.mp3", folder=blocker / "sub"), settings)
+        finish(runner)
+
+    assert any("couldn't create the output folder" in r.getMessage() for r in caplog.records)
+
+
+def test_a_cancelled_file_is_logged(events, settings, tmp_path, caplog):
+    gate = GateModel()
+    runner = gate_runner(events, gate)
+
+    try:
+        with caplog.at_level(logging.INFO, logger="subtitlemaker"):
+            runner.submit(make_job(tmp_path, "a.mp3"), settings)
+            assert gate.first_segment_done.wait(WAIT)
+
+            runner.cancel_current()
+            gate.release.set()
+            finish(runner)
+
+    finally:
+        runner.shutdown()
+
+    assert "Cancelled a.mp3" in [r.getMessage() for r in caplog.records]
+
+
+def test_a_file_dropped_before_it_started_is_logged_as_cancelled(
+    events, settings, tmp_path, caplog
+):
+    gate = GateModel()
+    runner = gate_runner(events, gate)
+
+    try:
+        with caplog.at_level(logging.INFO, logger="subtitlemaker"):
+            runner.submit_many(
+                [(make_job(tmp_path, n), settings) for n in ("a.mp3", "b.mp3", "c.mp3")]
+            )
+            assert gate.first_segment_done.wait(WAIT)
+
+            runner.cancel_all()
+            gate.release.set()
+            finish(runner)
+
+    finally:
+        runner.shutdown()
+
+    cancelled = [r.getMessage() for r in caplog.records if r.getMessage().startswith("Cancelled")]
+
+    assert cancelled == ["Cancelled a.mp3", "Cancelled b.mp3", "Cancelled c.mp3"]
+
+
+@pytest.mark.parametrize(
+    ("fail", "expected"),
+    [
+        ((), "Finished: 2 done."),
+        (("b.mp3",), "Finished: 1 done, 1 failed."),
+    ],
+)
+def test_the_end_of_a_queue_is_summed_up_in_the_log(
+    runner, settings, fake_model, tmp_path, caplog, fail, expected
+):
+    for name in fail:
+        fake_model.fail[name] = ValueError("boom")
+
+    with caplog.at_level(logging.INFO, logger="subtitlemaker"):
+        runner.submit_many([(make_job(tmp_path, n), settings) for n in ("a.mp3", "b.mp3")])
+        finish(runner)
+
+    assert expected in [r.getMessage() for r in caplog.records]
+
+
+def test_cancelled_files_are_part_of_the_summary(events, settings, tmp_path, caplog):
+    gate = GateModel()
+    runner = gate_runner(events, gate)
+
+    try:
+        with caplog.at_level(logging.INFO, logger="subtitlemaker"):
+            runner.submit_many([(make_job(tmp_path, n), settings) for n in ("a.mp3", "b.mp3")])
+            assert gate.first_segment_done.wait(WAIT)
+
+            runner.cancel_all()
+            gate.release.set()
+            finish(runner)
+
+    finally:
+        runner.shutdown()
+
+    assert "Finished: 0 done, 2 cancelled." in [r.getMessage() for r in caplog.records]

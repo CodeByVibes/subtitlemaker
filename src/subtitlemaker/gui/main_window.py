@@ -10,12 +10,14 @@ from PySide6.QtWidgets import QMainWindow, QMessageBox, QScrollArea, QTabWidget
 from .. import __version__
 from ..settings import Settings
 from .bridge import RunnerBridge
+from .log_pane import LogPane
 from .probe import DurationProber
 from .queue_panel import QueuePanel
 from .settings_panel import SettingsPanel
 
 ICON_PATH = Path(__file__).parent / "resources" / "icon.svg"
 SETTINGS_TAB = "Settings"
+LOG_TAB = "Log"
 
 
 class MainWindow(QMainWindow):
@@ -66,7 +68,24 @@ class MainWindow(QMainWindow):
         self.settings_panel.problem_changed.connect(self._show_settings_problem)
         self._show_settings_problem(self.settings_panel.error_label.text())
 
+        self.log_pane = LogPane()
+        self.log_pane.attach()
+        self.tabs.addTab(self.log_pane, LOG_TAB)
+        self.log_pane.attention.connect(self._point_at_log)
+        self.tabs.currentChanged.connect(self._tab_changed)
+
         self.setCentralWidget(self.tabs)
+
+    def _point_at_log(self) -> None:
+        """A warning or error was logged: mark the Log tab unless it is the one being shown."""
+
+        if self.tabs.currentWidget() is not self.log_pane:
+            self.tabs.setTabText(2, f"{LOG_TAB} ●")
+
+    def _tab_changed(self, index: int) -> None:
+
+        if self.tabs.widget(index) is self.log_pane:
+            self.tabs.setTabText(2, LOG_TAB)
 
     def _show_settings_problem(self, problem: str) -> None:
         """Mark the Settings tab when the form cannot be run as it is."""
@@ -85,6 +104,7 @@ class MainWindow(QMainWindow):
         self.bridge.cancel_all()
         self.bridge.shutdown()
         self.prober.shutdown()
+        self.log_pane.detach()
 
         event.accept()
 

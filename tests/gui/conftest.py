@@ -81,3 +81,25 @@ def make_window(qtbot, fake_model, monkeypatch):
     for window in windows:
         window.bridge.shutdown()
         window.prober.shutdown()
+        window.log_pane.detach()
+
+
+import logging  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def restore_logging():
+    """A window leaves a log handler and a raised log level behind unless it is closed,
+    and pytest-qt does not deliver close events: put the library's logger back after
+    every test so one test cannot change what the next one sees."""
+
+    logger = logging.getLogger("subtitlemaker")
+    handlers = list(logger.handlers)
+    level = logger.level
+    whisper_level = logging.getLogger("faster_whisper").level
+
+    yield
+
+    logger.handlers[:] = handlers
+    logger.setLevel(level)
+    logging.getLogger("faster_whisper").setLevel(whisper_level)

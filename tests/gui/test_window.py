@@ -68,7 +68,11 @@ def test_run_shows_the_window_and_returns_the_exit_code(qtbot, monkeypatch):
 def test_the_window_has_a_queue_tab_and_a_settings_tab(make_window):
     window = make_window()
 
-    assert [window.tabs.tabText(i) for i in range(window.tabs.count())] == ["Queue", "Settings"]
+    assert [window.tabs.tabText(i) for i in range(window.tabs.count())] == [
+        "Queue",
+        "Settings",
+        "Log",
+    ]
     assert window.tabs.widget(0) is window.panel
     assert window.settings_panel.parent() is not None  # inside the scroll area of the second tab
     assert window.tabs.currentIndex() == 0  # the queue is what you see first

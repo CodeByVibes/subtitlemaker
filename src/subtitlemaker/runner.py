@@ -249,6 +249,7 @@ class JobRunner:
 
         if stale or entry.cancel.is_set():
             self._cancelled += 1
+            log.info("Cancelled %s", job.input_file.name)
             self._emit("file_cancelled", job)
             return
 
@@ -258,8 +259,7 @@ class JobRunner:
             model, model_config = self._model_for(entry.settings)
 
         except Exception as e:
-            self._failed += 1
-            self._emit("file_failed", job, str(e))
+            self._fail(job, str(e))
             return
 
         try:
@@ -268,8 +268,7 @@ class JobRunner:
                 path.parent.mkdir(parents=True, exist_ok=True)
 
         except OSError as e:
-            self._failed += 1
-            self._emit("file_failed", job, f"couldn't create the output folder: {e}")
+            self._fail(job, f"couldn't create the output folder: {e}")
             return
 
         try:
@@ -287,23 +286,29 @@ class JobRunner:
 
         except Cancelled:
             self._cancelled += 1
+            log.info("Cancelled %s", job.input_file.name)
             self._emit("file_cancelled", job)
 
         except OutputError as e:
-            self._failed += 1
-            self._emit("file_failed", job, str(e))
+            self._fail(job, str(e))
 
         except Exception as e:
             # Not only the types we know: the real decoder raises its own
             # OSError subclass for a corrupt file, and anything else must
             # still leave the queue running.
             log.debug("details:", exc_info=True)
-            self._failed += 1
-            self._emit("file_failed", job, f"failed to process {job.input_file}: {e}")
+            self._fail(job, f"failed to process {job.input_file}: {e}")
 
         else:
             self._done += 1
             self._emit("file_finished", job, result)
+
+    def _fail(self, job: Job, message: str) -> None:
+        """Count a failure, put it in the log (as the command line does) and report it."""
+
+        self._failed += 1
+        log.error("%s", message)
+        self._emit("file_failed", job, message)
 
     def _model_for(self, settings: Settings) -> tuple[Any, ModelConfig]:
         """The loaded model for `settings`, loading (or reloading) it if needed."""
@@ -341,6 +346,17 @@ class JobRunner:
     def _finish_batch(self) -> None:
 
         counts = (self._done, self._failed, self._cancelled)
+
+        parts = [f"{self._done} done"]
+
+        if self._failed:
+            parts.append(f"{self._failed} failed")
+
+        if self._cancelled:
+            parts.append(f"{self._cancelled} cancelled")
+
+        log.info("Finished: %s.", ", ".join(parts))
+
         self._done = self._failed = self._cancelled = 0
 
         # A model that failed to load may work next time (network back,

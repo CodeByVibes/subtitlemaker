@@ -40,6 +40,12 @@ class _Formatter(logging.Formatter):
         return message
 
 
+def format_record(record: logging.LogRecord) -> str:
+    """A record as the command line prints it: the message, with a warning or error prefix."""
+
+    return _Formatter().format(record)
+
+
 class _ConsoleHandler(logging.Handler):
     """
     Print records through a `rich` console.
