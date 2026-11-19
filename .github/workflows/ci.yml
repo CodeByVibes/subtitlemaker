@@ -28,6 +28,8 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
+      - name: Libraries Qt needs to run without a display
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libegl1 libgl1 libxkbcommon0 libfontconfig1 libdbus-1-3
       - run: uv sync --locked
       - name: Lint
         run: uv run ruff check src tests
@@ -48,7 +50,36 @@ jobs:
         with:
           python-version: "3.10"
           enable-cache: true
+      - name: Libraries Qt needs to run without a display
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libegl1 libgl1 libxkbcommon0 libfontconfig1 libdbus-1-3
       - run: uv run --resolution lowest-direct pytest
+
+  # The command line must work without the desktop app's dependencies, and the
+  # desktop app must say what is missing instead of crashing.
+  core-install:
+    name: Install without the desktop extra
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          python-version: "3.12"
+      - run: uv venv "$RUNNER_TEMP/core"
+      - run: uv pip install --python "$RUNNER_TEMP/core/bin/python" .
+      - name: The command line works
+        run: '"$RUNNER_TEMP/core/bin/subtitlemaker" --version'
+      - name: PySide6 is not installed
+        run: '! "$RUNNER_TEMP/core/bin/python" -c "import PySide6"'
+      - name: The desktop app explains what to install
+        run: |
+          set +e
+          "$RUNNER_TEMP/core/bin/subtitlemaker-gui" 2> "$RUNNER_TEMP/gui.err"
+          status=$?
+          cat "$RUNNER_TEMP/gui.err"
+          test "$status" -eq 1
+          grep -q "subtitlemaker\[gui\]" "$RUNNER_TEMP/gui.err"
 
   # Runs a real (tiny) Whisper model on the CPU.
   integration:
@@ -82,3 +113,5 @@ jobs:
       - run: uv build
       - name: Check the package metadata
         run: uvx twine check --strict dist/*
+      - name: The desktop app's icon is in the wheel
+        run: unzip -l dist/*.whl | grep -q "subtitlemaker/gui/resources/icon.svg"
