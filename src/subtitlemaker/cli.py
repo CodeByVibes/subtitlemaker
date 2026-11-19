@@ -3,8 +3,6 @@
 import argparse
 import dataclasses
 import logging
-import time
-from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -12,255 +10,53 @@ from rich.console import Console
 
 from . import __version__
 from .config import DEVICES, ConfigError, ModelConfig, SubtitleStyle, load_config
-from .formats import DEFAULT_FORMAT, FORMATS, output_path, parse_formats
+from .formats import DEFAULT_FORMAT, FORMATS, parse_formats
 from .languages import parse_language_argument
 from .log import LOGGER_NAME, setup_logging
-from .media import find_media, get_duration
-from .progress import TranscriptionProgress, format_time
-from .segmenter import build_subtitles, lacks_punctuation
+from .pipeline import Options, OutputError, process_file
+from .planning import expand_inputs, plan_all_outputs
+from .progress import TranscriptionProgress
 
 log = logging.getLogger(LOGGER_NAME)
 
 
-@dataclasses.dataclass(frozen=True)
-class _Options:
-    """Everything that stays the same for every file in a run."""
-
-    style: SubtitleStyle
-    model_config: ModelConfig
-    task: str
-    languages: list[str]
-    language_hint: str | None
-    multilingual: bool
-    condition_on_previous_text: bool
-    detect_segments: int
-    detect_threshold: float
-    quiet: bool
-
-
-def _expand_inputs(inputs: Sequence[str], recursive: bool) -> tuple[list[Path], list[str]]:
+class _ProgressBar:
     """
-    Turn the command line inputs into a list of media files.
+    Shows `process_file` progress as a Rich bar.
 
-    Folders contribute the media files in them (and in sub folders with
-    `recursive`). Returns `(files, problems)`, where `problems` holds a
-    message for each input that does not exist or cannot be read;
-    duplicates are dropped.
+    The bar starts with the first report (just before the first segment is
+    decoded) and stops with the last one, so log lines around transcription
+    are not drawn over a live bar. Call `close` in a `finally` in case the
+    last report never comes.
     """
 
-    files = []
-    problems = []
-    seen = set()
+    def __init__(self, console: Console, enabled: bool) -> None:
+        self._console = console
+        self._enabled = enabled
+        self._bar: TranscriptionProgress | None = None
+        self._finished = False
 
-    for raw in inputs:
+    def __call__(self, position: float, duration: float) -> None:
 
-        path = Path(raw)
+        if not self._enabled or not duration or self._finished:
+            return
 
-        if path.is_dir():
+        if self._bar is None:
+            self._bar = TranscriptionProgress(duration, self._console, enabled=True)
+            self._bar.__enter__()
 
-            try:
-                found = find_media(path, recursive)
+        self._bar.update(position)
 
-            except OSError as e:
-                problems.append(f"couldn't read folder {path}: {e.strerror or e}")
-                continue
+        if position >= duration:
+            self.close()
 
-            if not found:
-                log.warning("no media files found in %s", path)
+    def close(self) -> None:
 
-        elif path.exists():
-            found = [path]
+        self._finished = True
 
-        else:
-            problems.append(f"input file does not exist: {path}")
-            continue
-
-        for file in found:
-
-            key = file.resolve()
-
-            if key not in seen:
-                seen.add(key)
-                files.append(file)
-
-    return files, problems
-
-
-def _plan_outputs(
-    input_file: Path, args: argparse.Namespace, formats: Sequence[str]
-) -> dict[str, Path]:
-    """The `{format: path}` files to write for one input."""
-
-    if args.output:
-
-        base = Path(args.output)
-
-        # One format: the name is used exactly as given.
-        if len(formats) == 1:
-            return {formats[0]: base}
-
-        return {name: output_path(base, name) for name in formats}
-
-    folder = Path(args.output_dir) if args.output_dir else input_file.parent
-
-    return {
-        name: folder / f"{input_file.stem}.{FORMATS[name].extension}"
-        for name in formats
-    }
-
-
-def _process_file(
-    model: Any,
-    input_file: Path,
-    outputs: dict[str, Path],
-    options: _Options,
-    console: Console,
-) -> bool:
-    """Transcribe one file and write its outputs. Returns True on success."""
-
-    if options.multilingual:
-
-        if options.languages:
-            language_display = (
-                f"auto-detect per segment "
-                f"(listed: {', '.join(options.languages)}; "
-                f"detection is not limited to these)"
-            )
-
-        else:
-            language_display = "auto-detect per segment"
-
-    else:
-
-        language_display = (
-            options.languages[0] if options.languages else "auto-detect"
-        )
-
-    log.info("Input:          %s", input_file)
-    log.info("Output:         %s", ", ".join(str(p) for p in outputs.values()))
-    log.info("Language:       %s", language_display)
-    log.info("Task:           %s", options.task)
-    log.info(
-        "Prompt history: %s",
-        "on" if options.condition_on_previous_text else "off",
-    )
-
-    log.debug("Reading media information...")
-
-    try:
-        duration = get_duration(input_file)
-
-    except Exception as e:
-        log.warning("couldn't determine duration: %s", e)
-        duration = 0.0
-
-    if duration:
-        log.info("Duration:       %s", format_time(duration))
-
-    log.info("Transcribing...")
-
-    transcription_start = time.monotonic()
-
-    segments, info = model.transcribe(
-        str(input_file),
-        language=options.language_hint,
-        task=options.task,
-        vad_filter=options.model_config.vad_filter,
-        word_timestamps=options.model_config.word_timestamps,
-        multilingual=options.multilingual,
-        condition_on_previous_text=options.condition_on_previous_text,
-        initial_prompt=options.model_config.initial_prompt or None,
-        hallucination_silence_threshold=(
-            options.model_config.hallucination_silence_threshold or None
-        ),
-        language_detection_segments=options.detect_segments,
-        language_detection_threshold=options.detect_threshold,
-    )
-
-    processed_segments = []
-
-    with TranscriptionProgress(
-        duration,
-        console,
-        enabled=not options.quiet,
-    ) as progress:
-
-        for segment in segments:
-
-            processed_segments.append(segment)
-
-            progress.update(float(segment.end))
-
-        # Final progress
-        progress.update(duration)
-
-    elapsed = time.monotonic() - transcription_start
-
-    log.info("Transcription complete in %s.", format_time(elapsed))
-
-    if duration and elapsed > 0:
-        log.info("Average speed: %.2fx realtime", duration / elapsed)
-
-    if options.multilingual:
-
-        log.info(
-            "Initial language: %s (%.1f%%)",
-            info.language,
-            info.language_probability * 100,
-        )
-
-        log.info(
-            "Languages were re-detected for every segment; "
-            "the value above is only the first guess."
-        )
-
-    else:
-
-        log.info(
-            "Detected language: %s (%.1f%%)",
-            info.language,
-            info.language_probability * 100,
-        )
-
-    log.info("Formatting subtitles...")
-
-    # The language of the subtitle text, for line breaking: English when
-    # translating, unknown when it may change from segment to segment.
-    if options.multilingual:
-        text_language = None
-
-    elif options.task == "translate":
-        text_language = "en"
-
-    else:
-        text_language = info.language
-
-    if lacks_punctuation(processed_segments, text_language):
-        log.warning(
-            "Whisper wrote almost no punctuation for %s, so subtitles will "
-            "end in the middle of sentences. This tends to happen when a "
-            "recording starts mid-sentence. Try again with a sentence or "
-            "two in the same language and style, e.g. "
-            "--prompt \"Hello, everyone. Let's begin.\"",
-            input_file.name,
-        )
-
-    subtitles = build_subtitles(processed_segments, options.style, text_language)
-
-    log.info("Generated %d subtitle cues.", len(subtitles))
-
-    for name, path in outputs.items():
-
-        log.info("Writing: %s", path)
-
-        try:
-            FORMATS[name].write(subtitles, path)
-
-        except OSError as e:
-            log.error("couldn't write %s: %s", path, e)
-            return False
-
-    return True
+        if self._bar is not None:
+            self._bar.__exit__(None, None, None)
+            self._bar = None
 
 
 def main() -> int:
@@ -723,50 +519,6 @@ def _resolve_settings(args: argparse.Namespace, parser: argparse.ArgumentParser)
     )
 
 
-def _plan_all_outputs(
-    files: Sequence[Path], args: argparse.Namespace, formats: Sequence[str]
-) -> dict[Path, dict[str, Path]]:
-    """
-    Decide where every input's outputs go: `{input file: {format: path}}`.
-
-    Raises `ValueError` (with a user-facing message) if an output would
-    overwrite an input, or two inputs would write the same file.
-    """
-
-    if args.output and len(files) > 1:
-        raise ValueError(
-            "-o/--output can only be used with a single input file; "
-            "use -d/--output-dir for several"
-        )
-
-    plan = {file: _plan_outputs(file, args, formats) for file in files}
-
-    owners: dict[Path, Path] = {}
-    input_paths = {file.resolve(): file for file in files}
-
-    for file, outputs in plan.items():
-
-        for path in outputs.values():
-
-            key = path.resolve()
-
-            if key in input_paths:
-                raise ValueError(
-                    f"the output {path} is the input file {input_paths[key]}; "
-                    f"it would be overwritten"
-                )
-
-            if key in owners:
-                raise ValueError(
-                    f"{owners[key]} and {file} would both write {path}; "
-                    f"use separate output folders"
-                )
-
-            owners[key] = file
-
-    return plan
-
-
 def _load_model_for_run(
     model_config: ModelConfig, multilingual: bool, task: str, style: SubtitleStyle
 ) -> tuple[Any, ModelConfig] | None:
@@ -846,7 +598,7 @@ def _run() -> int:
     # Inputs and where their outputs go
     # --------------------------------------------------------
 
-    files, problems = _expand_inputs(args.inputs, args.recursive)
+    files, problems = expand_inputs(args.inputs, args.recursive)
 
     for problem in problems:
         log.error("%s", problem)
@@ -859,7 +611,7 @@ def _run() -> int:
         return 1
 
     try:
-        plan = _plan_all_outputs(files, args, settings.formats)
+        plan = plan_all_outputs(files, settings.formats, args.output, args.output_dir)
 
     except ValueError as e:
         parser.error(str(e))
@@ -906,7 +658,7 @@ def _run() -> int:
 
         model, model_config = loaded
 
-        options = _Options(
+        options = Options(
             style=settings.style,
             model_config=model_config,
             task=args.task,
@@ -916,7 +668,6 @@ def _run() -> int:
             condition_on_previous_text=settings.condition_on_previous_text,
             detect_segments=args.detect_segments,
             detect_threshold=args.detect_threshold,
-            quiet=args.quiet,
         )
 
         for index, file in enumerate(todo, start=1):
@@ -924,14 +675,26 @@ def _run() -> int:
             if len(todo) > 1:
                 log.info("[%d/%d] %s", index, len(todo), file.name)
 
+            progress = _ProgressBar(console, enabled=not args.quiet)
+
             try:
-                ok = _process_file(model, file, plan[file], options, console)
+                process_file(
+                    model, file, plan[file], options, on_progress=progress
+                )
+                ok = True
+
+            except OutputError as e:
+                log.error("%s", e)
+                ok = False
 
             except Exception as e:
                 # One bad file must not stop the rest of a batch.
                 log.error("failed to process %s: %s", file, e)
                 log.debug("details:", exc_info=True)
                 ok = False
+
+            finally:
+                progress.close()
 
             if ok:
                 done += 1
