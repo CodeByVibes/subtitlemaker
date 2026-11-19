@@ -13,8 +13,12 @@ def run() -> int:
     # never exited: something in the interpreter's shutdown (native threads of the speech
     # libraries) waited forever. The result is already out, so leave at once.
     if "--self-check" in sys.argv:
-        sys.stdout.flush()
-        sys.stderr.flush()
+        # A windowed app on Windows has no console: both streams are None there, and an
+        # exception in this app opens a modal error box that nobody can click on a CI runner.
+        for stream in (sys.stdout, sys.stderr):
+            if stream is not None:
+                stream.flush()
+
         os._exit(code)
 
     return code

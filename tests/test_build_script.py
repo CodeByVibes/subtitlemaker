@@ -705,3 +705,24 @@ def test_the_packaged_entry_point_exits_at_once_after_a_self_check(tmp_path):
         .endswith(("self-check passed", "self-check FAILED"))
     )
     assert "self-check" in result.stdout
+
+
+def test_the_entry_point_copes_with_no_console_streams(monkeypatch):
+    # A windowed Windows app has sys.stdout = None. Flushing it raised, and the packaged
+    # app answered with a modal error box, which hung the Windows build.
+    spec = importlib.util.spec_from_file_location(
+        "subtitlemaker_app_entry", ROOT / "packaging" / "app_entry.py"
+    )
+    entry = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(entry)
+
+    left = []
+    monkeypatch.setattr(entry, "main", lambda: 3)
+    monkeypatch.setattr(entry.os, "_exit", left.append)
+    monkeypatch.setattr(entry.sys, "argv", ["SubtitleMaker.exe", "--self-check"])
+    monkeypatch.setattr(entry.sys, "stdout", None)
+    monkeypatch.setattr(entry.sys, "stderr", None)
+
+    entry.run()
+
+    assert left == [3]
