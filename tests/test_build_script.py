@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 
 import subtitlemaker
+from subtitlemaker import __version__
 
 if sys.version_info >= (3, 11):
     import tomllib
@@ -531,8 +532,8 @@ def test_linux_makes_a_tar_and_an_appimage_and_checksums_for_both(driver, tmp_pa
     assert driver.calls == ["pyinstaller", "tar", "appimage"]
     assert names(driver) == [
         "SHA256SUMS",
-        "SubtitleMaker-0.2.0-linux-x86_64.AppImage",
-        "SubtitleMaker-0.2.0-linux-x86_64.tar.gz",
+        f"SubtitleMaker-{__version__}-linux-x86_64.AppImage",
+        f"SubtitleMaker-{__version__}-linux-x86_64.tar.gz",
     ]
     sums = (driver.out / "SHA256SUMS").read_text()
     assert "AppImage" in sums and "tar.gz" in sums
@@ -566,7 +567,7 @@ def test_windows_makes_a_zip(driver):
     assert driver.run("Windows", "AMD64") == 0
 
     assert driver.calls == ["pyinstaller", "zip"]
-    assert "SubtitleMaker-0.2.0-windows-x64.zip" in names(driver)
+    assert f"SubtitleMaker-{__version__}-windows-x64.zip" in names(driver)
 
 
 @pytest.mark.parametrize("machine", ["arm64", "x86_64"])
@@ -574,7 +575,7 @@ def test_macos_makes_a_dmg_for_each_processor(driver, machine):
     assert driver.run("Darwin", machine) == 0
 
     assert driver.calls == ["pyinstaller", "dmg"]
-    assert f"SubtitleMaker-0.2.0-macos-{machine}.dmg" in names(driver)
+    assert f"SubtitleMaker-{__version__}-macos-{machine}.dmg" in names(driver)
 
 
 @posix_only

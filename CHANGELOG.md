@@ -4,6 +4,8 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-19
+
 ### Added
 - A desktop app: `subtitlemaker-gui` (or `python -m subtitlemaker.gui`), installed with `pip install "subtitlemaker[gui]"`. It is optional: the command line never loads Qt, and without the extra the command explains what to install. It has three tabs.
   - **Queue:** add files and folders (dialogs or drop them), start, watch progress with speed and time left, cancel, reorder, remove, queue again, and choose where the subtitles go. Cancel then Start resumes; finished and failed files wait for "Queue again". The command line's guards apply (two files writing one output, an output overwriting its input, `--skip-existing`). One bad file does not stop the rest.
@@ -93,7 +95,8 @@ First public release. It grew out of a single prototype script.
 - The GPU libraries are loaded without re-launching the Python process, so `python -m subtitlemaker` works.
 - A GPU without the CUDA 12 libraries no longer ends in a traceback in the middle of a run.
 
-[Unreleased]: https://github.com/CodeByVibes/subtitlemaker/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/CodeByVibes/subtitlemaker/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/CodeByVibes/subtitlemaker/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/CodeByVibes/subtitlemaker/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/CodeByVibes/subtitlemaker/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/CodeByVibes/subtitlemaker/compare/v0.1.0...v0.1.1
