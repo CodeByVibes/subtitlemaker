@@ -660,3 +660,48 @@ def test_the_driver_passes_the_runtime_on(driver, tmp_path, monkeypatch, build):
     driver.run("Linux", "x86_64", "--appimagetool", str(tool), "--appimage-runtime", str(runtime))
 
     assert seen[0][-1] == runtime
+
+
+# --- a self-check that never ends must not hold up the build ----------------------------------
+
+
+def test_a_self_check_that_hangs_fails_the_build_instead_of_waiting(build, monkeypatch, tmp_path):
+    def hang(command, **kwargs):
+        assert kwargs["timeout"] == build.SELF_CHECK_TIMEOUT
+        raise subprocess.TimeoutExpired(command, kwargs["timeout"])
+
+    monkeypatch.setattr(build.subprocess, "run", hang)
+    monkeypatch.setattr(build, "executable", lambda built: built)
+
+    code = build.self_check(tmp_path, tmp_path / "a.flac", "tiny", tmp_path / "report.txt")
+
+    assert code == 1
+
+
+def test_the_packaged_entry_point_exits_at_once_after_a_self_check(tmp_path):
+    # The macOS app finished its checks and then never exited. Run the real entry point
+    # (without audio, so no model is needed) and require a prompt exit with the report written.
+    pytest.importorskip("PySide6")
+
+    report = tmp_path / "report.txt"
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "packaging" / "app_entry.py"),
+            "--self-check",
+            "--report",
+            str(report),
+        ],
+        env=dict(os.environ, QT_QPA_PLATFORM="offscreen"),
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+
+    assert result.returncode in (0, 1), result.stderr
+    assert (
+        report.read_text(encoding="utf-8")
+        .rstrip()
+        .endswith(("self-check passed", "self-check FAILED"))
+    )
+    assert "self-check" in result.stdout

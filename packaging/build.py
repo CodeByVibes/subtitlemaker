@@ -31,6 +31,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 PACKAGING = ROOT / "packaging"
+SELF_CHECK_TIMEOUT = 600  # seconds
 APP_NAME = "SubtitleMaker"
 
 # --- naming ---------------------------------------------------------------------------------
@@ -385,19 +386,28 @@ def self_check(built: Path, audio: Path, model: str, report: Path) -> int:
 
     env = dict(os.environ, QT_QPA_PLATFORM="offscreen")
 
-    result = subprocess.run(
-        [
-            str(executable(built)),
-            "--self-check",
-            "--audio",
-            str(audio),
-            "--model",
-            model,
-            "--report",
-            str(report),
-        ],
-        env=env,
-    )
+    try:
+        result = subprocess.run(
+            [
+                str(executable(built)),
+                "--self-check",
+                "--audio",
+                str(audio),
+                "--model",
+                model,
+                "--report",
+                str(report),
+            ],
+            env=env,
+            # A hang must not hold a runner for an hour (the app once finished its checks and
+            # then never exited on macOS). Ten minutes is far more than a tiny model needs.
+            timeout=SELF_CHECK_TIMEOUT,
+        )
+
+    except subprocess.TimeoutExpired:
+        print(f"The built app's self-check did not finish in {SELF_CHECK_TIMEOUT} s.", file=sys.stderr)
+
+        return 1
 
     # A windowed app on Windows has no console: its report is in the file.
     if report.is_file():
