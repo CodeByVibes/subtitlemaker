@@ -36,6 +36,9 @@ class Recorder(RunnerEvents):
     def model_loading(self, model_config):
         self._record("model_loading", model_config)
 
+    def model_download(self, name, done, total):
+        self._record("model_download", name, done, total)
+
     def model_ready(self, model_config):
         self._record("model_ready", model_config)
 
@@ -754,3 +757,20 @@ def test_cancelled_files_are_part_of_the_summary(events, settings, tmp_path, cap
         runner.shutdown()
 
     assert "Finished: 0 done, 2 cancelled." in [r.getMessage() for r in caplog.records]
+
+
+def test_the_default_loader_reports_the_download(monkeypatch, events, tmp_path):
+    from subtitlemaker import transcribe
+
+    def load_for_run(model_config, multilingual, task, style, on_download=None):
+        on_download("small", 5, 10)
+        return object(), model_config
+
+    monkeypatch.setattr(transcribe, "load_for_run", load_for_run)
+
+    runner = JobRunner(events)
+    runner.submit(make_job(tmp_path, "a.mp3"), resolve_settings())
+    finish(runner)
+
+    assert events.of("model_download") == [("model_download", "small", 5, 10)]
+    assert events.threads == {"subtitlemaker-runner"}

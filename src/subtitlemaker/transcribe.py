@@ -1,7 +1,9 @@
 """Whisper model access and language handling."""
 
+import io
 import logging
 import re
+from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
 
@@ -147,6 +149,7 @@ def load_model(
     config: ModelConfig,
     allow_cpu_fallback: bool = False,
     requested: ModelConfig | None = None,
+    on_download: "DownloadProgress | None" = None,
 ) -> tuple[WhisperModel, ModelConfig]:
     """
     Load the model described by a resolved `ModelConfig`.
@@ -165,7 +168,7 @@ def load_model(
         preload_cuda_libs()
 
     try:
-        return _create(config), config
+        return _create(config, on_download), config
 
     except Exception as e:
 
@@ -211,14 +214,18 @@ def load_model(
         )
 
         try:
-            return _create(fallback), fallback
+            return _create(fallback, on_download), fallback
 
         except Exception as e2:
             raise _load_error(fallback.name, e2) from e2
 
 
 def load_for_run(
-    model_config: ModelConfig, multilingual: bool, task: str, style: SubtitleStyle
+    model_config: ModelConfig,
+    multilingual: bool,
+    task: str,
+    style: SubtitleStyle,
+    on_download: "DownloadProgress | None" = None,
 ) -> tuple[WhisperModel, ModelConfig]:
     """
     Resolve and load the model for a run, logging what is used.
@@ -263,6 +270,7 @@ def load_for_run(
         model_config,
         allow_cpu_fallback=allow_cpu_fallback,
         requested=requested_config,
+        on_download=on_download,
     )
 
 
@@ -276,7 +284,141 @@ def _load_error(name: str, error: BaseException) -> ModelError:
     )
 
 
-def _create(config: ModelConfig) -> WhisperModel:
+DownloadProgress = Callable[[str, int, int], None]
+
+# Approximate download sizes in MB, for the notice only.
+MODEL_SIZE_MB = {
+    "tiny": 73,
+    "tiny.en": 73,
+    "base": 141,
+    "base.en": 141,
+    "small": 462,
+    "small.en": 462,
+    "medium": 1500,
+    "medium.en": 1500,
+    "large-v3": 2900,
+    "turbo": 1600,
+    "large-v3-turbo": 1600,
+}
+
+# The files faster-whisper itself fetches.
+_MODEL_FILES = [
+    "config.json",
+    "preprocessor_config.json",
+    "model.bin",
+    "tokenizer.json",
+    "vocabulary.*",
+]
+
+
+def _repo_id(name: str) -> str | None:
+    """The Hugging Face repository for a model name, or None if it is not one."""
+
+    if "/" in name:
+        return name
+
+    try:
+        from faster_whisper.utils import _MODELS
+
+    except ImportError:  # pragma: no cover (private name moved)
+        return f"Systran/faster-whisper-{name}" if name in available_models() else None
+
+    return _MODELS.get(name)
+
+
+def is_downloaded(name: str) -> bool:
+    """True if the model is a local folder or already in the Hugging Face cache."""
+
+    if Path(name).is_dir():
+        return True
+
+    from faster_whisper.utils import download_model
+
+    try:
+        download_model(name, local_files_only=True)
+
+    except Exception:
+        return False
+
+    return True
+
+
+def download_model_with_progress(name: str, on_download: DownloadProgress) -> None:
+    """
+    Fetch `name` into the cache if it is missing, reporting `(name, done, total)` bytes.
+
+    Does nothing for local folders, cached models and names that are not
+    models (loading then reports that properly).
+    """
+
+    repo = _repo_id(name)
+
+    if repo is None or is_downloaded(name):
+        return
+
+    size = MODEL_SIZE_MB.get(name)
+    about = f" (about {size} MB)" if size else ""
+    log.info("Downloading the %s model%s. This happens once.", name, about)
+
+    import huggingface_hub
+    from tqdm.std import tqdm
+
+    bars: list = []
+    reported = [-1]
+
+    class ByteBar(tqdm):
+        """A silent bar that forwards its byte counts."""
+
+        def __init__(self, *args, **kwargs):
+            kwargs["file"] = io.StringIO()
+            super().__init__(*args, **kwargs)
+
+            if self.unit == "B":
+                bars.append(self)
+
+        def update(self, n=1):
+            result = super().update(n)
+
+            if self in bars:
+                _report(bars, reported, name, on_download)
+
+            return result
+
+        def display(self, *args, **kwargs):
+            pass
+
+    huggingface_hub.snapshot_download(
+        repo, allow_patterns=_MODEL_FILES, tqdm_class=ByteBar
+    )
+
+
+def _report(bars: list, reported: list, name: str, on_download: DownloadProgress) -> None:
+    """
+    Tell the listener how far the download is, once per percent.
+
+    huggingface_hub keeps two byte bars: the network transfer, which moves
+    steadily, and the files written, which can jump at the end. Whichever
+    is further along is the truth.
+    """
+
+    live = [bar for bar in bars if bar.total]
+
+    if not live:
+        return
+
+    bar = max(live, key=lambda b: b.n / b.total)
+    percent = int(100 * bar.n / bar.total)
+
+    if percent != reported[0] or bar.n >= bar.total:
+        reported[0] = percent
+        on_download(name, int(bar.n), int(bar.total))
+
+
+def _create(config: ModelConfig, on_download: DownloadProgress | None = None) -> WhisperModel:
+
+    if on_download is not None:
+        download_model_with_progress(config.name, on_download)
+
     model = WhisperModel(
         config.name,
         device=config.device,

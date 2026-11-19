@@ -55,6 +55,9 @@ class RunnerEvents:
     def model_loading(self, model_config: ModelConfig) -> None:
         """A model is about to be loaded (`model_config` as requested)."""
 
+    def model_download(self, name: str, done: int, total: int) -> None:
+        """The model `name` is being downloaded: `done` of `total` bytes so far."""
+
     def model_ready(self, model_config: ModelConfig) -> None:
         """The model is loaded (`model_config` as used: name and device resolved)."""
 
@@ -106,7 +109,7 @@ class JobRunner:
         load_model: ModelLoader | None = None,
     ) -> None:
         self._events = events or RunnerEvents()
-        self._load_model = load_model or _load_for_settings
+        self._load_model = load_model or self._load_for_settings
 
         self._queue: queue.Queue[_Entry | None] = queue.Queue()
         self._lock = threading.Lock()
@@ -365,6 +368,19 @@ class JobRunner:
 
         self._emit("queue_finished", *counts)
 
+    def _load_for_settings(self, settings: Settings) -> tuple[Any, ModelConfig]:
+        """The default model loader (imported late: the machine learning libraries are slow)."""
+
+        from .transcribe import load_for_run
+
+        return load_for_run(
+            settings.model_config,
+            settings.multilingual,
+            settings.task,
+            settings.style,
+            on_download=lambda name, done, total: self._emit("model_download", name, done, total),
+        )
+
     def _emit(self, name: str, *args: Any) -> None:
 
         try:
@@ -372,13 +388,3 @@ class JobRunner:
 
         except Exception:
             log.error("error in the %s handler", name, exc_info=True)
-
-
-def _load_for_settings(settings: Settings) -> tuple[Any, ModelConfig]:
-    """The default model loader (imported late: the machine learning libraries are slow)."""
-
-    from .transcribe import load_for_run
-
-    return load_for_run(
-        settings.model_config, settings.multilingual, settings.task, settings.style
-    )

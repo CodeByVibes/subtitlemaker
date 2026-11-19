@@ -67,7 +67,7 @@ def fake_model(monkeypatch):
     model = FakeModel()
     model.loads = 0
 
-    def fake_load_model(config, allow_cpu_fallback=False, requested=None):
+    def fake_load_model(config, allow_cpu_fallback=False, requested=None, on_download=None):
         model.loads += 1
         model.requested = requested
         return model, config

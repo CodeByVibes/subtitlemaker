@@ -24,6 +24,7 @@ class RunnerBridge(QObject):
     """A `JobRunner` whose events are Qt signals."""
 
     model_loading = Signal(ModelConfig)
+    model_download = Signal(str, int, int)
     model_ready = Signal(ModelConfig)
     model_failed = Signal(ModelConfig, str)
     file_started = Signal(Job)
@@ -70,6 +71,9 @@ class _EmitSignals(RunnerEvents):
 
     def model_loading(self, model_config: ModelConfig) -> None:
         self._emit("model_loading", model_config)
+
+    def model_download(self, name: str, done: int, total: int) -> None:
+        self._emit("model_download", name, done, total)
 
     def model_ready(self, model_config: ModelConfig) -> None:
         self._emit("model_ready", model_config)

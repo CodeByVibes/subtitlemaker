@@ -206,6 +206,7 @@ class QueuePanel(QWidget):
 
         bridge = self._bridge
         bridge.model_loading.connect(self._on_model_loading)
+        bridge.model_download.connect(self._on_model_download)
         bridge.model_ready.connect(self._on_model_ready)
         bridge.file_started.connect(self._on_started)
         bridge.file_progress.connect(self._on_progress)
@@ -362,6 +363,15 @@ class QueuePanel(QWidget):
 
     def _on_model_loading(self, model_config: object) -> None:
         self.detail.setText(f"Loading the {getattr(model_config, 'name', 'speech')} model…")
+
+    def _on_model_download(self, name: str, done: int, total: int) -> None:
+        mb = 1024 * 1024
+        text = f"Downloading the {name} model (first use only): {done // mb} of {total // mb} MB"
+
+        if total > 0:
+            text += f" ({100 * done // total}%)"
+
+        self.detail.setText(text)
 
     def _on_model_ready(self, model_config: object) -> None:
         name = getattr(model_config, "name", "")

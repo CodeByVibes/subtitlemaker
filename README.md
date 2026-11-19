@@ -210,7 +210,7 @@ What to know about them:
 
 - **They are not signed.** Windows SmartScreen shows "Windows protected your PC": choose *More info*, then *Run anyway*. macOS says the developer cannot be verified: the first time, right-click the app, choose *Open*, and confirm (or run `xattr -dr com.apple.quarantine /Applications/SubtitleMaker.app`).
 - **They use the CPU only.** The CUDA libraries would add 1.3 GB, so even on a machine with an NVIDIA GPU these apps run on the processor, with the `small` model by default. That is much slower than a GPU. For the GPU, install with pipx instead: `pipx install "subtitlemaker[gui,cuda]"`.
-- **The first transcription downloads a model** (`small` is 462 MB) from Hugging Face, once. The window does not show the download yet, so it can look idle for a few minutes.
+- **The first transcription downloads a model** (`small` is 462 MB) from Hugging Face, once. The queue screen shows how far the download is, and the log tab says what is happening.
 - **On Linux, an AppImage needs FUSE on some systems.** If it will not start, run it as `./SubtitleMaker-VERSION-linux-x86_64.AppImage --appimage-extract-and-run`, or use the `.tar.gz`. The Linux apps are built on Ubuntu 22.04 and need a system at least as new in its C library, plus the usual desktop libraries (OpenGL, xkbcommon).
 - **Only the Linux app has been run by hand.** The Windows and macOS apps are built, and checked by the same self-check (below) before they are published, but nobody has run them on a real Windows or macOS machine yet. Please report what you find.
 - **If something does not work,** run the app with `--self-check` (on Windows `SubtitleMaker.exe --self-check --report check.txt`, because the app has no console). It prints one line per thing the app needs, and whether it works. Add its output, and the *Copy details* text of the About box, to a [bug report](CONTRIBUTING.md#reporting-a-problem).
@@ -248,7 +248,7 @@ The transcript (the words and their times) is kept apart from the subtitle setti
 - Speakers are not identified, and no sound descriptions like `[music]` are added.
 - The desktop app is new. It has been used on Linux (Wayland) only. Dropping files on the list has been tested with simulated drops, not from a real file manager, and the native file dialogs depend on your desktop. You cannot edit the text of a subtitle in it, and it does not play the media.
 - A preview needs the transcript, so it is only there for files transcribed in the current session.
-- The standalone apps are unsigned, CPU only, and show no progress while they download a model on the first run (see [Standalone apps](#standalone-apps)).
+- The standalone apps are unsigned, and CPU only (see [Standalone apps](#standalone-apps)).
 
 ## Contributing
 

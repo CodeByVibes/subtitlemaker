@@ -762,3 +762,12 @@ def test_closing_while_working_asks_first(ui, gated, tmp_path, monkeypatch):
     assert not gated.window.isVisible()
     assert not any(t.name == "subtitlemaker-runner" for t in threading.enumerate())
     assert not any(p.with_suffix(".srt").exists() for p in tmp_path.iterdir())
+
+
+def test_the_panel_shows_how_far_a_model_download_is(ui):
+    ui.panel._bridge.model_download.emit("small", 231 * 1024 * 1024, 462 * 1024 * 1024)
+
+    assert (
+        ui.panel.detail.text()
+        == "Downloading the small model (first use only): 231 of 462 MB (50%)"
+    )
