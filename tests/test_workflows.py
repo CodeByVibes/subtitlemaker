@@ -117,7 +117,6 @@ EXPECTED = {
     "ubuntu-22.04": ("Linux", "x86_64", "linux-x86_64"),
     "windows-latest": ("Windows", "AMD64", "windows-x64"),
     "macos-latest": ("Darwin", "arm64", "macos-arm64"),
-    "macos-15-intel": ("Darwin", "x86_64", "macos-x86_64"),
 }
 
 

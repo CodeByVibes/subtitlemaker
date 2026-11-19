@@ -46,7 +46,7 @@ jobs:
           - { name: Linux x86_64, os: ubuntu-22.04, tag: linux-x86_64 }
           - { name: Windows x64, os: windows-latest, tag: windows-x64 }
           - { name: macOS Apple Silicon, os: macos-latest, tag: macos-arm64 }
-          - { name: macOS Intel, os: macos-15-intel, tag: macos-x86_64 }
+          # No Intel Mac app: onnxruntime has no macOS x86_64 wheels after 1.23.2.
     steps:
       - uses: actions/checkout@v7
         with:

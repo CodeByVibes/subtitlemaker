@@ -202,7 +202,7 @@ Releases that include them have ready-to-run apps attached (the [changelog](CHAN
 | ------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------- |
 | Linux   | `SubtitleMaker-VERSION-linux-x86_64.AppImage`, or the `.tar.gz` of the same name           | Make the AppImage executable and run it, or extract the `.tar.gz` and run `SubtitleMaker/SubtitleMaker`. |
 | Windows | `SubtitleMaker-VERSION-windows-x64.zip`                                                    | Extract the zip, then run `SubtitleMaker.exe`.                      |
-| macOS   | `SubtitleMaker-VERSION-macos-arm64.dmg` (Apple Silicon) or `-macos-x86_64.dmg` (Intel)     | Open the disk image and drag SubtitleMaker to Applications.         |
+| macOS   | `SubtitleMaker-VERSION-macos-arm64.dmg` (Apple Silicon only)                               | Open the disk image and drag SubtitleMaker to Applications.         |
 
 Check a download against the `SHA256SUMS` file of the release (`sha256sum -c SHA256SUMS`, or `shasum -a 256 -c SHA256SUMS` on macOS).
 
