@@ -192,3 +192,22 @@ def test_shutdown_stops_the_worker_thread(bridge, settings, tmp_path):
     bridge.shutdown()
 
     assert not any(t.name == "subtitlemaker-runner" for t in threading.enumerate())
+
+
+def test_a_bridge_that_is_deleted_does_not_leave_its_worker_behind(
+    qtbot, fake_model, settings, tmp_path
+):
+    import shiboken6
+
+    bridge = RunnerBridge()
+    bridge.submit(make_job(tmp_path), settings)
+    qtbot.waitUntil(
+        lambda: any(t.name == "subtitlemaker-runner" for t in threading.enumerate()), timeout=WAIT
+    )
+
+    shiboken6.delete(bridge)  # as when a window is destroyed without its close event
+
+    qtbot.waitUntil(
+        lambda: not any(t.name == "subtitlemaker-runner" for t in threading.enumerate()),
+        timeout=WAIT,
+    )

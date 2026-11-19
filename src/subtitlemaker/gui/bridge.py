@@ -36,7 +36,12 @@ class RunnerBridge(QObject):
     def __init__(self, parent: QObject | None = None, load_model: ModelLoader | None = None):
         super().__init__(parent)
 
-        self._runner = JobRunner(_EmitSignals(self), load_model)
+        runner = JobRunner(_EmitSignals(self), load_model)
+        self._runner = runner
+
+        # Safety net: if the bridge is destroyed without `shutdown` (a window
+        # deleted without its close event), do not leave the worker thread behind.
+        self.destroyed.connect(lambda *_: runner.shutdown(wait=False))
 
     def submit(self, job: Job, settings: Settings) -> None:
         self._runner.submit(job, settings)
