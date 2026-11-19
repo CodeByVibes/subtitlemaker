@@ -78,6 +78,16 @@ def main() -> int:
         return 130
 
 
+def option_help() -> dict[str, str]:
+    """The help text of every option, by its name in `argparse` (e.g. `max_lines`)."""
+
+    return {
+        action.dest: action.help
+        for action in _build_parser()._actions
+        if action.help and action.help != argparse.SUPPRESS
+    }
+
+
 def _build_parser() -> argparse.ArgumentParser:
     """The argument parser. Building it does no work and imports nothing heavy."""
 

@@ -95,16 +95,16 @@ class QueuePanel(QWidget):
         self.down_button = QPushButton("Move down")
         self.requeue_button = QPushButton("Queue again")
 
-        top = QHBoxLayout()
+        # Two short rows rather than one long one: the window can be narrow
+        # (a tiling window manager often makes it so).
+        adding = QHBoxLayout()
 
-        for widget in (
-            self.add_files_button,
-            self.add_folder_button,
-            self.recursive_check,
-        ):
-            top.addWidget(widget)
+        for widget in (self.add_files_button, self.add_folder_button, self.recursive_check):
+            adding.addWidget(widget)
 
-        top.addStretch(1)
+        adding.addStretch(1)
+
+        editing = QHBoxLayout()
 
         for widget in (
             self.up_button,
@@ -113,7 +113,9 @@ class QueuePanel(QWidget):
             self.remove_button,
             self.clear_button,
         ):
-            top.addWidget(widget)
+            editing.addWidget(widget)
+
+        editing.addStretch(1)
 
         self.view = FileQueueView(self)
         self.view.setModel(self.model)
@@ -128,12 +130,15 @@ class QueuePanel(QWidget):
         self.folder_button = QPushButton("Browse…")
         self.skip_existing_check = QCheckBox("Skip files whose subtitles already exist")
 
-        output = QHBoxLayout()
-        output.addWidget(QLabel("Save subtitles:"))
-        output.addWidget(self.next_to_radio)
-        output.addWidget(self.folder_radio)
-        output.addWidget(self.folder_edit, 1)
-        output.addWidget(self.folder_button)
+        choice = QHBoxLayout()
+        choice.addWidget(QLabel("Save subtitles:"))
+        choice.addWidget(self.next_to_radio)
+        choice.addWidget(self.folder_radio)
+        choice.addStretch(1)
+
+        folder = QHBoxLayout()
+        folder.addWidget(self.folder_edit, 1)
+        folder.addWidget(self.folder_button)
 
         self.detail = QLabel("Add files, or drop them here.")
         self.start_button = QPushButton("Start")
@@ -145,9 +150,11 @@ class QueuePanel(QWidget):
         bottom.addWidget(self.start_button)
 
         layout = QVBoxLayout(self)
-        layout.addLayout(top)
+        layout.addLayout(adding)
+        layout.addLayout(editing)
         layout.addWidget(self.view, 1)
-        layout.addLayout(output)
+        layout.addLayout(choice)
+        layout.addLayout(folder)
         layout.addWidget(self.skip_existing_check)
         layout.addLayout(bottom)
 

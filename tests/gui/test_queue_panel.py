@@ -1,7 +1,6 @@
 """The file queue screen, driven like a user would: through its buttons and a real runner."""
 
 import threading
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -14,7 +13,6 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox  # noqa: E402
 
 from subtitlemaker.config import ConfigError  # noqa: E402
 from subtitlemaker.gui.bridge import RunnerBridge  # noqa: E402
-from subtitlemaker.gui.main_window import MainWindow  # noqa: E402
 from subtitlemaker.gui.queue_model import (  # noqa: E402
     COL_DURATION,
     COL_STATUS,
@@ -22,6 +20,7 @@ from subtitlemaker.gui.queue_model import (  # noqa: E402
 )
 from subtitlemaker.settings import resolve_settings  # noqa: E402
 from tests.conftest import make_segment  # noqa: E402
+from tests.gui.helpers import media  # noqa: E402
 
 WAIT = 5000  # ms
 
@@ -30,55 +29,6 @@ WAIT = 5000  # ms
 def known_duration(monkeypatch):
     monkeypatch.setattr("subtitlemaker.pipeline.get_duration", lambda path: 10.0)
     monkeypatch.setattr("subtitlemaker.gui.probe.get_duration", lambda path: 10.0)
-
-
-@pytest.fixture
-def warnings(monkeypatch):
-    """Warning dialogs are recorded as `(title, text)`, not shown."""
-
-    shown = []
-    monkeypatch.setattr(
-        QMessageBox,
-        "warning",
-        staticmethod(lambda parent, title, text, *a, **k: shown.append((title, text))),
-    )
-
-    return shown
-
-
-@pytest.fixture
-def make_window(qtbot, fake_model, monkeypatch):
-    """Makes main windows and stops their worker threads when the test ends.
-
-    The fixture holds the windows itself: pytest-qt only keeps weak references,
-    so a window that lives in a test's local variable is gone (and never closed)
-    by the time pytest-qt looks.
-    """
-
-    windows = []
-
-    # A modal "Quit?" question would block forever without a display; if a test fails
-    # while files are running, pytest-qt closes the window and that question appears.
-    monkeypatch.setattr(
-        QMessageBox, "question", staticmethod(lambda *a, **k: QMessageBox.StandardButton.Yes)
-    )
-
-    def make(bridge=None, settings_provider=None):
-        window = MainWindow(
-            bridge=bridge,
-            settings_provider=settings_provider
-            or (lambda: resolve_settings(model={"name": "tiny"})),
-        )
-        qtbot.addWidget(window)
-        windows.append(window)
-
-        return window
-
-    yield make
-
-    for window in windows:
-        window.bridge.shutdown()
-        window.prober.shutdown()
 
 
 @pytest.fixture
@@ -96,18 +46,6 @@ def ui(qtbot, fake_model, make_window, warnings):
         fake_model=fake_model,
         qtbot=qtbot,
     )
-
-
-def media(folder: Path, *names: str) -> list[Path]:
-    folder.mkdir(parents=True, exist_ok=True)
-    paths = []
-
-    for name in names:
-        path = folder / name
-        path.write_bytes(b"")  # never decoded: the model is fake
-        paths.append(path)
-
-    return paths
 
 
 def statuses(ui):

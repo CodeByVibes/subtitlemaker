@@ -3,6 +3,7 @@
 import sys
 from collections.abc import Sequence
 
+from PySide6.QtCore import QSettings
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import QApplication
 
@@ -17,6 +18,8 @@ def run(argv: Sequence[str] | None = None) -> int:
 
     app = QApplication.instance() or QApplication(list(sys.argv if argv is None else argv))
 
+    # These name the settings file: ~/.config/subtitlemaker/SubtitleMaker.conf
+    app.setOrganizationName("subtitlemaker")
     app.setApplicationName(APP_NAME)
     app.setApplicationVersion(__version__)
 
@@ -24,7 +27,7 @@ def run(argv: Sequence[str] | None = None) -> int:
     # window to its icon and launcher entry.
     QGuiApplication.setDesktopFileName("subtitlemaker")
 
-    window = MainWindow()
+    window = MainWindow(store=QSettings())
     window.show()
 
     return app.exec()

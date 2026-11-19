@@ -39,6 +39,12 @@ def _package_lib_dir(package: str) -> Path | None:
     return Path(paths[0]) if paths else None
 
 
+def pip_libs_installed() -> bool:
+    """True if the `[cuda]` extra's packages are installed (nothing is loaded)."""
+
+    return all(_package_lib_dir(package) is not None for package, _ in _PACKAGES)
+
+
 def preload_cuda_libs() -> bool:
     """
     Load cuBLAS and cuDNN from the pip nvidia-* packages, if installed.

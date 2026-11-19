@@ -19,6 +19,14 @@ def _known_language_codes() -> Collection[str] | None:
     return codes
 
 
+def known_language_codes() -> list[str]:
+    """Whisper's language codes, sorted; empty if they can't be looked up."""
+
+    codes = _known_language_codes()
+
+    return sorted(codes) if codes is not None else []
+
+
 def parse_language_argument(value: str | None) -> tuple[list[str], bool]:
     """
     Parse the -l/--language argument.
