@@ -2,6 +2,7 @@
 
 import hashlib
 import importlib.util
+import os
 import shutil
 import struct
 import subprocess
@@ -273,6 +274,24 @@ def test_the_spec_reads_the_variables_the_driver_sets(build):
 
     for variable in ("SUBTITLEMAKER_VERSION", "SUBTITLEMAKER_ICON"):
         assert variable in spec and variable in driver
+
+
+def test_the_icon_path_given_to_pyinstaller_is_absolute(build, monkeypatch, tmp_path):
+    # A relative path is read from the spec's folder by PyInstaller, not from where we run.
+    import types
+
+    fake = types.ModuleType("PyInstaller.__main__")
+    fake.run = lambda args: None
+    monkeypatch.setitem(sys.modules, "PyInstaller", types.ModuleType("PyInstaller"))
+    monkeypatch.setitem(sys.modules, "PyInstaller.__main__", fake)
+    monkeypatch.setattr(sys.modules["PyInstaller"], "__main__", fake, raising=False)
+    monkeypatch.setenv("SUBTITLEMAKER_ICON", "")  # restored afterwards
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(RuntimeError, match="did not make"):  # nothing was built: fine here
+        build.run_pyinstaller("1.0", Path("icons/a.ico"), Path("dist"), Path("work"))
+
+    assert Path(os.environ["SUBTITLEMAKER_ICON"]).is_absolute()
 
 
 def test_the_spec_bundles_what_a_frozen_app_cannot_find_on_its_own():

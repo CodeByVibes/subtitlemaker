@@ -212,7 +212,12 @@ def run_pyinstaller(version: str, icon: Path | None, dist: Path, work: Path) -> 
 
     import PyInstaller.__main__
 
-    env = {"SUBTITLEMAKER_VERSION": version, "SUBTITLEMAKER_ICON": str(icon) if icon else ""}
+    # PyInstaller resolves a relative icon path against the spec's folder, not the current one,
+    # so a relative `--work` (as in CI) would look in the wrong place.
+    env = {
+        "SUBTITLEMAKER_VERSION": version,
+        "SUBTITLEMAKER_ICON": str(icon.resolve()) if icon else "",
+    }
     os.environ.update(env)
 
     PyInstaller.__main__.run(
