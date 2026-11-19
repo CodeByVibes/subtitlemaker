@@ -10,7 +10,7 @@ import numpy as np
 from faster_whisper import WhisperModel, available_models
 
 from ._cuda import preload_cuda_libs
-from .config import ModelConfig
+from .config import ModelConfig, SubtitleStyle
 from .languages import parse_language_argument  # noqa: F401  (kept importable here)
 
 log = logging.getLogger(__name__)
@@ -199,6 +199,55 @@ def load_model(
 
         except Exception as e2:
             raise _load_error(fallback.name, e2) from e2
+
+
+def load_for_run(
+    model_config: ModelConfig, multilingual: bool, task: str, style: SubtitleStyle
+) -> tuple[WhisperModel, ModelConfig]:
+    """
+    Resolve and load the model for a run, logging what is used.
+
+    Returns `(model, config_used)`. Raises `ModelError` (message ready to
+    show) if the model cannot be chosen or loaded.
+    """
+
+    # A GPU that turns out to be unusable only falls back to the CPU when
+    # the device was left on auto.
+    allow_cpu_fallback = model_config.device == "auto"
+
+    # What the user asked for, before "auto" is resolved: a CPU fallback
+    # must not replace a model or compute type they chose.
+    requested_config = model_config
+
+    model_config = resolve_model_config(model_config)
+
+    log.info("Model:          %s", model_config.name)
+    log.info("Device:         %s", model_config.device)
+    log.info("Compute type:   %s", model_config.compute_type)
+
+    if multilingual and task == "translate":
+        log.warning(
+            "task=translate turns every segment into English."
+        )
+
+    log.debug("Subtitle configuration:")
+    log.debug("  Max line length:  %s", style.max_line_length)
+    log.debug("  Max lines:        %s", style.max_lines)
+    log.debug("  Max CPS:          %g", style.max_cps)
+    log.debug("  Min duration:     %ss", style.min_duration)
+    log.debug("  Max duration:     %ss", style.max_duration)
+    log.debug("  Minimum gap:      %ss", style.min_gap)
+    log.debug("  Max pause:        %ss", style.max_pause)
+    log.debug("  Linger:           %ss", style.linger)
+    log.debug("  Close gaps under: %ss", style.close_gap)
+
+    log.info("Loading Whisper model...")
+
+    return load_model(
+        model_config,
+        allow_cpu_fallback=allow_cpu_fallback,
+        requested=requested_config,
+    )
 
 
 def _load_error(name: str, error: BaseException) -> ModelError:
