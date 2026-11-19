@@ -1,5 +1,6 @@
 """What the About box says, built without Qt so it can be tested without a window."""
 
+import importlib
 import importlib.metadata
 import platform
 import re
@@ -40,14 +41,29 @@ def shorten_home(text: str, home: Path | None = None) -> str:
     return re.sub(r"(?<![\w./~-])" + re.escape(folder) + r"(?=/|$|[\s)\]'\"])", "~", text)
 
 
-def package_version(name: str) -> str:
-    """The installed version of a package, or "unknown"."""
+def package_version(name: str, module: str | None = None) -> str:
+    """
+    The installed version of a package, or "unknown".
+
+    A packaged app carries no package metadata, so when that is missing the
+    module's own `__version__` is asked (`module` defaults to the package name
+    with dashes written as underscores).
+    """
 
     try:
         return importlib.metadata.version(name)
 
     except importlib.metadata.PackageNotFoundError:
+        pass
+
+    try:
+        imported = importlib.import_module(module or name.replace("-", "_"))
+        version = getattr(imported, "__version__", None)
+
+    except Exception:
         return "unknown"
+
+    return version if isinstance(version, str) and version else "unknown"
 
 
 def environment_report(

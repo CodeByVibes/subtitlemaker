@@ -58,6 +58,10 @@ subtitlemaker = "subtitlemaker.cli:main"
 subtitlemaker-gui = "subtitlemaker.gui:main"
 
 [dependency-groups]
+# Only for building the standalone apps (packaging/build.py), in an environment of its own.
+build = [
+    "pyinstaller>=6.11",
+]
 dev = [
     "mypy>=2.4.1",
     "pytest>=8",
@@ -109,7 +113,7 @@ markers = [
 strict = true
 files = ["src"]
 
-# faster-whisper and ctranslate2 ship no type information.
+# faster-whisper, ctranslate2 and onnxruntime ship no type information.
 [[tool.mypy.overrides]]
-module = ["faster_whisper", "faster_whisper.*", "ctranslate2"]
+module = ["faster_whisper", "faster_whisper.*", "ctranslate2", "onnxruntime"]
 ignore_missing_imports = true

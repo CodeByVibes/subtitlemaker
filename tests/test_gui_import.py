@@ -46,3 +46,41 @@ def test_running_the_module_without_pyside6_gives_the_same_message():
     assert result.returncode == 1
     assert "pip install 'subtitlemaker[gui]'" in result.stderr
     assert "Traceback" not in result.stderr
+
+
+def test_version_works_without_pyside6():
+    result = _python(
+        "import sys\n"
+        "sys.modules['PySide6'] = None\n"
+        "from subtitlemaker.gui import main\n"
+        "sys.exit(main(['--version']))\n"
+    )
+
+    import subtitlemaker
+
+    assert result.returncode == 0
+    assert result.stdout.strip() == f"subtitlemaker-gui {subtitlemaker.__version__}"
+
+
+def test_the_self_check_without_pyside6_says_what_is_missing():
+    result = _python(
+        "import sys\n"
+        "sys.modules['PySide6'] = None\n"
+        "from subtitlemaker.gui import main\n"
+        "sys.exit(main(['--self-check']))\n"
+    )
+
+    assert result.returncode == 1
+    assert "pip install 'subtitlemaker[gui]'" in result.stderr
+    assert "Traceback" not in result.stderr
+
+
+def test_the_help_lists_the_packaging_options():
+    result = _python(
+        "from subtitlemaker.gui import main\n"
+        "main(['--help'])\n"
+    )
+
+    assert result.returncode == 0
+    for option in ("--version", "--self-check", "--audio", "--model", "--report"):
+        assert option in result.stdout, option

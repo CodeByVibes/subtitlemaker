@@ -1,6 +1,7 @@
 """The settings panel: what a user sees and what a run gets."""
 
 import dataclasses
+import sys
 
 import pytest
 
@@ -555,3 +556,15 @@ def test_run_keeps_the_settings_in_the_apps_own_file(qtbot, tmp_path, monkeypatc
     assert QSettings().value(SETTINGS_KEY) == '{"language": "sv"}'
 
     windows[0].bridge.shutdown()
+
+
+def test_the_device_line_for_the_cpu_only_app_says_so_and_how_to_get_the_gpu(monkeypatch):
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.delenv("SUBTITLEMAKER_USE_CUDA", raising=False)
+    monkeypatch.setattr("subtitlemaker.transcribe.ctranslate2.get_cuda_device_count", lambda: 1)
+
+    text = device_summary()
+
+    assert "CPU-only app build" in text
+    assert "pip install 'subtitlemaker[gui,cuda]'" in text
+    assert "GPU found" not in text  # it may well be there, but this app does not use it

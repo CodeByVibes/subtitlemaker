@@ -1,6 +1,8 @@
 """What the About box says (no Qt needed)."""
 
+import importlib.metadata
 import sys
+import types
 from pathlib import Path
 
 import pytest
@@ -124,6 +126,55 @@ def test_the_report_never_contains_the_home_folder(tmp_path, monkeypatch):
 
     assert str(home) not in text and "alice" not in text
     assert "Config file: ~/.config/subtitlemaker/config.toml" in text
+
+
+def _no_metadata(monkeypatch):
+    """What a packaged app looks like: no package metadata at all."""
+
+    def missing(name):
+        raise importlib.metadata.PackageNotFoundError(name)
+
+    monkeypatch.setattr("importlib.metadata.version", missing)
+
+
+def test_without_package_metadata_the_module_is_asked(monkeypatch):
+    _no_metadata(monkeypatch)
+    module = types.ModuleType("fake_whisper_pkg")
+    module.__version__ = "9.8.7"
+    monkeypatch.setitem(sys.modules, "fake_whisper_pkg", module)
+
+    assert package_version("fake-whisper-pkg") == "9.8.7"  # dashes become underscores
+    assert package_version("some-distribution", "fake_whisper_pkg") == "9.8.7"  # or name it
+
+
+def test_a_package_with_neither_metadata_nor_a_version_is_unknown(monkeypatch):
+    _no_metadata(monkeypatch)
+    versionless = types.ModuleType("versionless_pkg")
+    wrong_kind = types.ModuleType("wrong_kind_pkg")
+    wrong_kind.__version__ = (1, 2)  # not text
+    monkeypatch.setitem(sys.modules, "versionless_pkg", versionless)
+    monkeypatch.setitem(sys.modules, "wrong_kind_pkg", wrong_kind)
+
+    assert package_version("versionless-pkg") == "unknown"
+    assert package_version("wrong-kind-pkg") == "unknown"
+    assert package_version("not-a-module-at-all") == "unknown"
+
+
+def test_a_module_that_breaks_when_imported_is_unknown_not_a_crash(monkeypatch, tmp_path):
+    _no_metadata(monkeypatch)
+    (tmp_path / "exploding_pkg.py").write_text("raise RuntimeError('broken at import')\n")
+    monkeypatch.syspath_prepend(str(tmp_path))
+
+    assert package_version("exploding-pkg") == "unknown"  # whatever it raises
+
+
+def test_the_report_names_the_versions_even_in_a_packaged_app(monkeypatch):
+    _no_metadata(monkeypatch)
+
+    line = report().splitlines()[4]
+
+    assert "unknown" not in line  # read from the modules instead
+    assert line.startswith("faster-whisper 1.") and "CTranslate2 4." in line
 
 
 def test_a_package_that_is_not_installed_is_reported_as_unknown():

@@ -10,6 +10,7 @@ import numpy as np
 from faster_whisper import WhisperModel, available_models
 
 from ._cuda import preload_cuda_libs
+from ._packaged import CPU_ONLY_NOTE, cpu_only_build
 from .config import ModelConfig, SubtitleStyle
 from .languages import parse_language_argument  # noqa: F401  (kept importable here)
 
@@ -33,7 +34,10 @@ class ModelError(RuntimeError):
 
 
 def cuda_available() -> bool:
-    """True if CTranslate2 can see at least one CUDA device."""
+    """True if CTranslate2 can see at least one CUDA device (never in the CPU-only app build)."""
+
+    if cpu_only_build():
+        return False
 
     try:
         return bool(ctranslate2.get_cuda_device_count() > 0)
@@ -65,12 +69,24 @@ def resolve_model_config(config: ModelConfig, cuda: bool | None = None) -> Model
 
         else:
             device = "cpu"
-            log.warning(
-                "no CUDA device found, using the CPU. "
-                "Transcription will be much slower."
-            )
+
+            if cpu_only_build():
+                log.warning("using the CPU. %s", CPU_ONLY_NOTE)
+
+            else:
+                log.warning(
+                    "no CUDA device found, using the CPU. "
+                    "Transcription will be much slower."
+                )
 
     elif config.device == "cuda" and not cuda:
+
+        if cpu_only_build():
+            raise ModelError(
+                f"The GPU cannot be used (device cuda). {CPU_ONLY_NOTE} "
+                "Or choose device auto or cpu."
+            )
+
         raise ModelError(
             "--device cuda was requested but no CUDA device was found. "
             "Use --device auto or --device cpu."

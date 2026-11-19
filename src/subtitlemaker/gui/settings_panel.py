@@ -421,7 +421,11 @@ def device_summary() -> str:
 
     # Imported here: they load the machine learning libraries.
     from .._cuda import pip_libs_installed
+    from .._packaged import CPU_ONLY_NOTE, cpu_only_build
     from ..transcribe import cuda_available
+
+    if cpu_only_build():
+        return CPU_ONLY_NOTE
 
     if not cuda_available():
         return "No NVIDIA GPU found. The CPU will be used, which is much slower."
