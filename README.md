@@ -163,7 +163,7 @@ Unknown keys and wrong types are reported with the file name, so typos don't pas
 
 ## Desktop app
 
-The same engine in a window. Install the `gui` extra (see [Install](#install)) and start it with `subtitlemaker-gui` (or `python -m subtitlemaker.gui`). Without the extra, it tells you what to install.
+The same engine in a window. Install the `gui` extra (see [Install](#install)) and start it with `subtitlemaker-gui` (or `python -m subtitlemaker.gui`). Without the extra, it tells you what to install. If you would rather not install Python at all, there are [standalone apps](#standalone-apps).
 
 ![The queue tab: three files, two finished](https://raw.githubusercontent.com/CodeByVibes/subtitlemaker/main/docs/images/queue.png)
 
@@ -193,6 +193,27 @@ cp packaging/subtitlemaker.svg ~/.local/share/icons/hicolor/scalable/apps/
 If the launcher does not find `subtitlemaker-gui`, put the full path (`command -v subtitlemaker-gui`) in the `Exec=` line.
 
 The `gui` extra installs PySide6 6.8 to 6.11. PySide6 6.12.0 is excluded on purpose: on Python 3.10 and 3.11 it forgets a reference every time a method returns nothing, which crashes the program after a few thousand calls. Python 3.12 and newer are not affected.
+
+### Standalone apps
+
+Releases that include them have ready-to-run apps attached (the [changelog](CHANGELOG.md) says which), so you do not need Python:
+
+| System  | File                                                                                       | How                                                                 |
+| ------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------- |
+| Linux   | `SubtitleMaker-VERSION-linux-x86_64.AppImage`, or the `.tar.gz` of the same name           | Make the AppImage executable and run it, or extract the `.tar.gz` and run `SubtitleMaker/SubtitleMaker`. |
+| Windows | `SubtitleMaker-VERSION-windows-x64.zip`                                                    | Extract the zip, then run `SubtitleMaker.exe`.                      |
+| macOS   | `SubtitleMaker-VERSION-macos-arm64.dmg` (Apple Silicon) or `-macos-x86_64.dmg` (Intel)     | Open the disk image and drag SubtitleMaker to Applications.         |
+
+Check a download against the `SHA256SUMS` file of the release (`sha256sum -c SHA256SUMS`, or `shasum -a 256 -c SHA256SUMS` on macOS).
+
+What to know about them:
+
+- **They are not signed.** Windows SmartScreen shows "Windows protected your PC": choose *More info*, then *Run anyway*. macOS says the developer cannot be verified: the first time, right-click the app, choose *Open*, and confirm (or run `xattr -dr com.apple.quarantine /Applications/SubtitleMaker.app`).
+- **They use the CPU only.** The CUDA libraries would add 1.3 GB, so even on a machine with an NVIDIA GPU these apps run on the processor, with the `small` model by default. That is much slower than a GPU. For the GPU, install with pipx instead: `pipx install "subtitlemaker[gui,cuda]"`.
+- **The first transcription downloads a model** (`small` is 462 MB) from Hugging Face, once. The window does not show the download yet, so it can look idle for a few minutes.
+- **On Linux, an AppImage needs FUSE on some systems.** If it will not start, run it as `./SubtitleMaker-VERSION-linux-x86_64.AppImage --appimage-extract-and-run`, or use the `.tar.gz`. The Linux apps are built on Ubuntu 22.04 and need a system at least as new in its C library, plus the usual desktop libraries (OpenGL, xkbcommon).
+- **Only the Linux app has been run by hand.** The Windows and macOS apps are built, and checked by the same self-check (below) before they are published, but nobody has run them on a real Windows or macOS machine yet. Please report what you find.
+- **If something does not work,** run the app with `--self-check` (on Windows `SubtitleMaker.exe --self-check --report check.txt`, because the app has no console). It prints one line per thing the app needs, and whether it works. Add its output, and the *Copy details* text of the About box, to a [bug report](CONTRIBUTING.md#reporting-a-problem).
 
 ## GPU and CPU
 
@@ -227,6 +248,7 @@ The transcript (the words and their times) is kept apart from the subtitle setti
 - Speakers are not identified, and no sound descriptions like `[music]` are added.
 - The desktop app is new. It has been used on Linux (Wayland) only. Dropping files on the list has been tested with simulated drops, not from a real file manager, and the native file dialogs depend on your desktop. You cannot edit the text of a subtitle in it, and it does not play the media.
 - A preview needs the transcript, so it is only there for files transcribed in the current session.
+- The standalone apps are unsigned, CPU only, and show no progress while they download a model on the first run (see [Standalone apps](#standalone-apps)).
 
 ## Contributing
 

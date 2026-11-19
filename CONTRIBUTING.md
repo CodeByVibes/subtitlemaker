@@ -92,9 +92,32 @@ git diff tests/fixtures
 
 Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/): `feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `build:`, `chore:`. Keep each commit to one logical change, and add a line to `CHANGELOG.md` under "Unreleased" for anything a user would notice.
 
+## Building the standalone apps
+
+The apps are made with PyInstaller by `packaging/build.py`. The release workflow (`.github/workflows/build-apps.yml`) does it for Linux, Windows and macOS; you can also build the one for your own system:
+
+```console
+# An environment of its own: the gui extra and the build group, no dev tools, and NOT the cuda extra.
+export UV_PROJECT_ENVIRONMENT=$HOME/.local/share/venvs/subtitlemaker-build
+uv sync --locked --group build --extra gui --no-dev --no-editable
+uv run --no-sync python packaging/build.py --self-check-audio tests/fixtures/jfk.flac
+```
+
+The result is in `/tmp/subtitlemaker-out` (`--out` changes it) with a `SHA256SUMS` file. The build environment must not have the `cuda` extra: the app is CPU only, and the CUDA libraries would add 1.3 GB (`transcribe.cuda_available()` also refuses the GPU in a packaged app, so a bundle that did contain them would not use them). `--self-check-audio` runs the built app's own `--self-check`, including a real transcription of the clip, and stops the build if anything fails. On Linux, `appimagetool` on the `PATH` (or `--appimagetool PATH`) also makes an AppImage.
+
+- A bundle built on a new Linux needs a glibc that new: the downloadable one is built on the oldest Ubuntu GitHub offers. A local build proves the mechanics, not portability.
+- `appimagetool` downloads its runtime from the internet unless you give it one (`--appimage-runtime FILE`). CI does, pinned by checksum.
+- Windows and macOS can only be built on those systems, so the CI run is the only test of those two. The parts that do not depend on the system (names, icons, archives, checksums) are tested in `tests/test_build_script.py`.
+- If a feature uses a file that is not Python (a data file, a Qt plugin), a bundle may not contain it. Add it to `packaging/subtitlemaker.spec` and a check for it to `subtitlemaker/gui/selfcheck.py`: that is how the SVG icon plugin and the voice-activity model are covered.
+
+### Before the first release that includes apps (maintainers, once)
+
+The `Build apps` workflow attaches the files to the GitHub Release after approval of an environment called `github-release`. In the repository settings, under *Environments*, create `github-release` and add yourself as a required reviewer **before** pushing the tag. A workflow that names an environment that does not exist creates it with no protection, and the apps would be attached without anyone approving them.
+
 ## Releasing (maintainers)
 
 1. Move the "Unreleased" entries in `CHANGELOG.md` under a new version heading with the date.
 2. Set the version in `src/subtitlemaker/__init__.py` (it is the single source for the package version).
 3. Commit, then tag: `git tag v0.2.0 && git push origin main v0.2.0`.
 4. The `Publish` workflow builds the package, checks the tag matches the version, runs the tests and uploads to PyPI with trusted publishing. No tokens are stored anywhere.
+5. The `Build apps` workflow starts on the same tag. It builds and self-checks the apps for all systems, then waits for you to approve the `github-release` environment. After approval it attaches the apps and a `SHA256SUMS` file to the release, and makes a **draft** release if there is none yet. So publish the draft (edit it and add the notes) instead of running `gh release create`, or create the release first and the apps are added to it.
