@@ -6,6 +6,7 @@ import re
 from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
+from typing import Any
 
 import ctranslate2
 import numpy as np
@@ -323,7 +324,9 @@ def _repo_id(name: str) -> str | None:
     except ImportError:  # pragma: no cover (private name moved)
         return f"Systran/faster-whisper-{name}" if name in available_models() else None
 
-    return _MODELS.get(name)
+    repo: str | None = _MODELS.get(name)
+
+    return repo
 
 
 def is_downloaded(name: str) -> bool:
@@ -363,28 +366,28 @@ def download_model_with_progress(name: str, on_download: DownloadProgress) -> No
     import huggingface_hub
     from tqdm.std import tqdm
 
-    bars: list = []
+    bars: list[Any] = []
     reported = [-1]
 
-    class ByteBar(tqdm):
+    class ByteBar(tqdm):  # type: ignore[misc]
         """A silent bar that forwards its byte counts."""
 
-        def __init__(self, *args, **kwargs):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
             kwargs["file"] = io.StringIO()
             super().__init__(*args, **kwargs)
 
             if self.unit == "B":
                 bars.append(self)
 
-        def update(self, n=1):
-            result = super().update(n)
+        def update(self, n: float | None = 1) -> bool | None:
+            result: bool | None = super().update(n)
 
             if self in bars:
                 _report(bars, reported, name, on_download)
 
             return result
 
-        def display(self, *args, **kwargs):
+        def display(self, *args: Any, **kwargs: Any) -> None:
             pass
 
     huggingface_hub.snapshot_download(
@@ -392,7 +395,7 @@ def download_model_with_progress(name: str, on_download: DownloadProgress) -> No
     )
 
 
-def _report(bars: list, reported: list, name: str, on_download: DownloadProgress) -> None:
+def _report(bars: list[Any], reported: list[int], name: str, on_download: DownloadProgress) -> None:
     """
     Tell the listener how far the download is, once per percent.
 

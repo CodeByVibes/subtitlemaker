@@ -113,7 +113,7 @@ markers = [
 strict = true
 files = ["src"]
 
-# faster-whisper, ctranslate2 and onnxruntime ship no type information.
+# faster-whisper, ctranslate2, onnxruntime and tqdm ship no type information.
 [[tool.mypy.overrides]]
-module = ["faster_whisper", "faster_whisper.*", "ctranslate2", "onnxruntime"]
+module = ["faster_whisper", "faster_whisper.*", "ctranslate2", "onnxruntime", "tqdm", "tqdm.*"]
 ignore_missing_imports = true
