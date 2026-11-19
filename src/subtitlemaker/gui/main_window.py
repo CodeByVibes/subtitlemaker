@@ -3,20 +3,27 @@
 from collections.abc import Callable
 from pathlib import Path
 
-from PySide6.QtCore import QSettings
-from PySide6.QtGui import QCloseEvent, QIcon
-from PySide6.QtWidgets import QMainWindow, QMessageBox, QScrollArea, QTabWidget
+from PySide6.QtCore import QSettings, Qt
+from PySide6.QtGui import QCloseEvent, QIcon, QKeySequence, QShortcut
+from PySide6.QtWidgets import (
+    QMainWindow,
+    QMessageBox,
+    QScrollArea,
+    QTabWidget,
+    QToolButton,
+)
 
 from .. import __version__
 from ..config import SubtitleStyle
 from ..settings import Settings
+from .about import AboutDialog
 from .bridge import RunnerBridge
 from .log_pane import LogPane
 from .probe import DurationProber
 from .queue_panel import QueuePanel
+from .resources import ICON_PATH
 from .settings_panel import SettingsPanel
 
-ICON_PATH = Path(__file__).parent / "resources" / "icon.svg"
 SETTINGS_TAB = "Settings"
 LOG_TAB = "Log"
 
@@ -45,6 +52,9 @@ class MainWindow(QMainWindow):
 
         self.bridge = bridge or RunnerBridge(self)
         self.prober = prober or DurationProber(self)
+
+        self._store = store
+        self._about: AboutDialog | None = None
 
         self.settings_panel = SettingsPanel(store)
 
@@ -77,7 +87,31 @@ class MainWindow(QMainWindow):
         self.log_pane.attention.connect(self._point_at_log)
         self.tabs.currentChanged.connect(self._tab_changed)
 
+        # In the corner of the tab bar: no menu bar to spend height on, and F1 as well.
+        self.about_button = QToolButton()
+        self.about_button.setText("About")
+        self.about_button.setToolTip("About SubtitleMaker (F1)")
+        self.about_button.clicked.connect(self.show_about)
+        self.tabs.setCornerWidget(self.about_button, Qt.Corner.TopRightCorner)
+        QShortcut(QKeySequence.StandardKey.HelpContents, self, self.show_about)
+
         self.setCentralWidget(self.tabs)
+
+    def show_about(self) -> AboutDialog:
+        """Open the About box (or raise it if it is open)."""
+
+        if self._about is None:
+            settings_file = Path(self._store.fileName()) if self._store is not None else None
+            self._about = AboutDialog(settings_file, self)
+            self._about.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+            self._about.destroyed.connect(lambda *_: setattr(self, "_about", None))
+            self._about.open()
+
+        else:
+            self._about.raise_()
+            self._about.activateWindow()
+
+        return self._about
 
     def _use_style(self, style: SubtitleStyle) -> None:
         """A style tried in a preview becomes the style for new files."""
@@ -109,7 +143,12 @@ class MainWindow(QMainWindow):
 
         # Stops the worker thread. A model that is still loading cannot be
         # interrupted, so this can take a moment.
+        # Other windows of ours would keep the application running after this one is gone.
         self.panel.close_previews()
+
+        if self._about is not None:
+            self._about.close()
+
         self.bridge.cancel_all()
         self.bridge.shutdown()
         self.prober.shutdown()

@@ -179,6 +179,8 @@ The same engine in a window. Install the `gui` extra (see [Install](#install)) a
 
 **Log.** The messages the command line prints, as they happen, with warnings and errors coloured. *Show details* adds the debug output (`-v`). The tab is marked when a warning or error arrives while you are looking elsewhere.
 
+**About.** The *About* button in the corner of the tab bar (or F1) shows the version, links and credits, and a block of details (versions of Python, Qt, faster-whisper and CTranslate2, your OS, whether a GPU was found, and where the config and settings files are) with a *Copy details* button, ready to paste into a [bug report](CONTRIBUTING.md#reporting-a-problem). Your home folder is written as `~`, so the report does not contain your user name.
+
 The window works from about 500 pixels wide, so it fits a narrow tile. Each of the three tabs has the whole width.
 
 To get an entry in your application launcher, copy the desktop file and icon from [`packaging/`](https://github.com/CodeByVibes/subtitlemaker/tree/main/packaging) (they are in the source distribution too):
