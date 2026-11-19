@@ -1,0 +1,142 @@
+name: Build apps
+
+# Builds the standalone desktop apps (PyInstaller, CPU only) for Linux, Windows and macOS.
+#
+# - Pushing a version tag (v0.3.0) builds them, checks each one with its own self-check (a
+#   real transcription of a short clip), and then waits for approval of the `github-release`
+#   environment before attaching the files to the GitHub Release.
+# - "Run workflow" on the Actions tab, and pull requests that touch the packaging, only build
+#   and check them (the files are kept as artifacts of the run).
+#
+# The apps are not signed (see the README for what users will see).
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+    paths:
+      - ".github/workflows/build-apps.yml"
+      - "packaging/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "src/subtitlemaker/_packaged.py"
+      - "src/subtitlemaker/gui/selfcheck.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-apps-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref_type != 'tag' }} # never cancel the build of a release
+
+env:
+  # The Whisper model for the self-check is cached here, at the same path on every system.
+  HF_HOME: ${{ github.workspace }}/.hf
+
+jobs:
+  build:
+    name: Build (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The oldest Ubuntu GitHub offers: a Linux app runs on systems with a glibc at least as new.
+          - { name: Linux x86_64, os: ubuntu-22.04, tag: linux-x86_64 }
+          - { name: Windows x64, os: windows-latest, tag: windows-x64 }
+          - { name: macOS Apple Silicon, os: macos-latest, tag: macos-arm64 }
+          - { name: macOS Intel, os: macos-15-intel, tag: macos-x86_64 }
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - name: The tag must match the package version
+        if: github.ref_type == 'tag'
+        shell: bash
+        run: |
+          version=$(uv run --no-project python -c "import re; print(re.search(r'__version__ = \"(.+?)\"', open('src/subtitlemaker/__init__.py').read()).group(1))")
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match version $version in src/subtitlemaker/__init__.py"
+            exit 1
+          fi
+
+      - name: Libraries Qt needs to start (without a display)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libegl1 libgl1 libxkbcommon0 libfontconfig1 libdbus-1-3
+
+      # Pinned releases, checked against the SHA-256 that GitHub publishes for each file, so a
+      # changed file fails the build instead of ending up in the app.
+      - name: appimagetool and the AppImage runtime (pinned)
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p "$RUNNER_TEMP/appimage"
+          cd "$RUNNER_TEMP/appimage"
+          curl -fsSL -o appimagetool https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage
+          curl -fsSL -o runtime-x86_64 https://github.com/AppImage/type2-runtime/releases/download/20251108/runtime-x86_64
+          echo "ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0  appimagetool" | sha256sum -c -
+          echo "2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d  runtime-x86_64" | sha256sum -c -
+          chmod +x appimagetool
+
+      - uses: actions/cache@v6
+        with:
+          path: .hf
+          key: huggingface-whisper-tiny-v1
+
+      # No `cuda` extra and no dev group: the app is CPU only, and the CUDA libraries alone
+      # would add 1.3 GB. The app is installed as a wheel (not editable), as a user's would be.
+      - run: uv sync --locked --group build --extra gui --no-dev --no-editable
+
+      - name: Build, check and package (Linux)
+        if: runner.os == 'Linux'
+        run: >
+          uv run --no-sync python packaging/build.py --out apps --work build-apps
+          --self-check-audio tests/fixtures/jfk.flac
+          --appimagetool "$RUNNER_TEMP/appimage/appimagetool"
+          --appimage-runtime "$RUNNER_TEMP/appimage/runtime-x86_64"
+      - name: Build, check and package
+        if: runner.os != 'Linux'
+        run: uv run --no-sync python packaging/build.py --out apps --work build-apps --self-check-audio tests/fixtures/jfk.flac
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: app-${{ matrix.tag }}
+          path: apps/SubtitleMaker-*
+          if-no-files-found: error
+
+  release:
+    name: Attach to the GitHub release
+    needs: build
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    # Waits for approval. Set the required reviewer on this environment in the repository
+    # settings BEFORE the first tag: a workflow that names a missing environment creates it
+    # with no protection at all.
+    environment:
+      name: github-release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: app-*
+          merge-multiple: true
+          path: apps
+      - name: Checksums of everything
+        working-directory: apps
+        run: |
+          sha256sum SubtitleMaker-* > SHA256SUMS
+          cat SHA256SUMS
+      - name: Attach to the release (a draft is made if there is none yet)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft --title "$GITHUB_REF_NAME" \
+              --notes "Standalone apps for Linux, Windows and macOS. They are not signed: see the README."
+          fi
+          gh release upload "$GITHUB_REF_NAME" apps/* --repo "$GITHUB_REPOSITORY" --clobber
