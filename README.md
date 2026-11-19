@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 Generate subtitles from audio and video files with [faster-whisper](https://github.com/SYSTRAN/faster-whisper).
-It runs locally, on a GPU if you have one and on the CPU if you don't.
+It runs locally, on a GPU if you have one and on the CPU if you don't. Use it from the command line, or with the optional [desktop app](#desktop-app).
 
 ```console
 $ subtitlemaker interview.mkv
@@ -18,6 +18,7 @@ interview.mkv  interview.srt
 - **Batch mode:** pass many files or whole folders; the model is loaded once and one bad file doesn't stop the rest.
 - **GPU or CPU.** `--device auto` uses an NVIDIA GPU when there is one and falls back to the CPU when there isn't.
 - **Mixed-language audio** (`-m`, or `-l en,sv`), and optional translation to English (`-t translate`).
+- **A desktop app** (optional): a file queue with progress, the same settings, and a preview where you can try other subtitle styles on a finished file without transcribing it again.
 
 ## Install
 
@@ -31,6 +32,9 @@ pipx install subtitlemaker
 
 # NVIDIA GPU (also installs the CUDA 12 libraries, see below)
 pipx install "subtitlemaker[cuda]"
+
+# With the desktop app (add cuda for the GPU: "subtitlemaker[gui,cuda]")
+pipx install "subtitlemaker[gui]"
 ```
 
 With uv: `uv tool install subtitlemaker` or `uv tool install "subtitlemaker[cuda]"`. Plain `pip install` works too, ideally inside a virtual environment.
@@ -157,6 +161,37 @@ hallucination_silence_threshold = 0   # seconds, 0 = off
 
 Unknown keys and wrong types are reported with the file name, so typos don't pass silently.
 
+## Desktop app
+
+The same engine in a window. Install the `gui` extra (see [Install](#install)) and start it with `subtitlemaker-gui` (or `python -m subtitlemaker.gui`). Without the extra, it tells you what to install.
+
+![The queue tab: three files, two finished](https://raw.githubusercontent.com/CodeByVibes/subtitlemaker/main/docs/images/queue.png)
+
+**Queue.** Add files with *Add files…* or *Add folder…* (*Include sub folders* goes into sub folders), or drop them on the list. *Start* transcribes everything that is queued, one file after another, with the model loaded once. Each row shows the file's length, its status and a progress bar, and the line at the bottom shows speed and time left. *Cancel* stops the running file and drops the ones waiting; *Start* then picks the cancelled files up again. Finished and failed files stay put until you choose *Queue again*, so *Start* never repeats work. Subtitles are saved next to each file or in a folder you pick, and *Skip files whose subtitles already exist* works as `--skip-existing` does. As on the command line, two files that would write the same output, or an output that would overwrite its input, are refused before anything starts. One bad file does not stop the rest, and when a file fails the summary says why.
+
+![The settings tab](https://raw.githubusercontent.com/CodeByVibes/subtitlemaker/main/docs/images/settings.png)
+
+**Settings.** Model, language, task, output formats and prompt, with the subtitle style and the advanced options (device, precision, word timestamps and so on) in sections you can open. Hover over a setting for its help, which is the text of the matching command line option. The panel starts from your [config file](#config-file), so your values are already there. What you change is remembered between sessions in the app's own file, `~/.config/subtitlemaker/SubtitleMaker.conf` (it never edits `config.toml`), and only the changes are stored, so anything you did not touch keeps following the config file. *Reset to defaults* goes back to the config file's values. A mistake is shown at the top of the tab as you make it, and the tab gets a ⚠. A line at the top says whether an NVIDIA GPU was found.
+
+![The preview of a finished file's subtitles](https://raw.githubusercontent.com/CodeByVibes/subtitlemaker/main/docs/images/preview.png)
+
+**Preview.** Select a finished file and press *Preview…* (or double-click it) to see its subtitles with their times and reading speed. Change the style on the right and the subtitles are built again at once, without running the model: the transcript is kept while the app is open, and building the subtitles takes a few milliseconds. The result is the same as running the command line again with those options. *Save* replaces the file's subtitle files; *Use this style for new files* copies the style into the settings.
+
+**Log.** The messages the command line prints, as they happen, with warnings and errors coloured. *Show details* adds the debug output (`-v`). The tab is marked when a warning or error arrives while you are looking elsewhere.
+
+The window works from about 500 pixels wide, so it fits a narrow tile. Each of the three tabs has the whole width.
+
+To get an entry in your application launcher, copy the desktop file and icon from [`packaging/`](https://github.com/CodeByVibes/subtitlemaker/tree/main/packaging) (they are in the source distribution too):
+
+```console
+cp packaging/subtitlemaker.desktop ~/.local/share/applications/
+cp packaging/subtitlemaker.svg ~/.local/share/icons/hicolor/scalable/apps/
+```
+
+If the launcher does not find `subtitlemaker-gui`, put the full path (`command -v subtitlemaker-gui`) in the `Exec=` line.
+
+The `gui` extra installs PySide6 6.8 to 6.11. PySide6 6.12.0 is excluded on purpose: on Python 3.10 and 3.11 it forgets a reference every time a method returns nothing, which crashes the program after a few thousand calls. Python 3.12 and newer are not affected.
+
 ## GPU and CPU
 
 `--device auto` (the default) picks the GPU when CTranslate2 can see one and warns and uses the CPU otherwise.
@@ -181,11 +216,15 @@ If the GPU can't be used, `--device auto` falls back to the CPU and tells you wh
 3. Timing is adjusted for readability without moving speech, as described above.
 4. The result is written in each requested format.
 
+The transcript (the words and their times) is kept apart from the subtitle settings, which is why the desktop app can build the subtitles again with other settings without running the model.
+
 ## Limitations
 
 - At most two lines per subtitle.
 - Lines are wrapped at spaces, so languages written without spaces (Chinese, Japanese, Thai) are not wrapped well. This is untested.
 - Speakers are not identified, and no sound descriptions like `[music]` are added.
+- The desktop app is new. It has been used on Linux (Wayland) only. Dropping files on the list has been tested with simulated drops, not from a real file manager, and the native file dialogs depend on your desktop. You cannot edit the text of a subtitle in it, and it does not play the media.
+- A preview needs the transcript, so it is only there for files transcribed in the current session.
 
 ## Contributing
 

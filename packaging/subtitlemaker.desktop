@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=SubtitleMaker
+GenericName=Subtitle generator
+Comment=Make subtitles from audio and video with Whisper
+Exec=subtitlemaker-gui
+Icon=subtitlemaker
+Terminal=false
+Categories=AudioVideo;Video;
+Keywords=subtitles;srt;vtt;whisper;transcribe;
+StartupWMClass=subtitlemaker

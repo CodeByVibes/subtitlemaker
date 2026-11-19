@@ -4,6 +4,20 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Added
+- A desktop app: `subtitlemaker-gui` (or `python -m subtitlemaker.gui`), installed with `pip install "subtitlemaker[gui]"`. It is optional: the command line never loads Qt, and without the extra the command explains what to install. It has three tabs.
+  - **Queue:** add files and folders (dialogs or drop them), start, watch progress with speed and time left, cancel, reorder, remove, queue again, and choose where the subtitles go. Cancel then Start resumes; finished and failed files wait for "Queue again". The command line's guards apply (two files writing one output, an output overwriting its input, `--skip-existing`). One bad file does not stop the rest.
+  - **Settings:** the options of the command line, with its help text as tooltips. It starts from your `config.toml`, remembers only what you changed in `~/.config/subtitlemaker/SubtitleMaker.conf`, and shows a mistake at the top as you make it.
+  - **Log:** the command line's messages as they happen, warnings and errors coloured, "Show details" for `-v`.
+  - A **preview** of a finished file's subtitles, where the style can be changed and the subtitles are built again at once without running the model (a few milliseconds). The result is identical to running the command line again with those options: checked byte for byte on an English and a Swedish clip, in three styles each. Save replaces the file's subtitle files; "Use this style for new files" copies the style to the settings.
+  - It works in a window about 500 pixels wide. Tested on Linux (Wayland) with PySide6 6.8 and 6.11 on Python 3.10 to 3.13; dropping from a real file manager is untested.
+- `packaging/` has a desktop entry and an icon for application launchers, and a test keeps them in step with the app.
+
+### Changed
+- The `gui` extra needs PySide6 6.8 or newer and older than 6.12. PySide6 6.12.0 leaks a reference to `None` on every call that returns nothing; on Python 3.10 and 3.11 that aborts the program after a few thousand calls, which a long log or a long session reaches. Python 3.12 and newer are not affected. A test (`tests/gui/test_pyside_health.py`) fails on a PySide6 with the bug.
+- The work a run does for one file, building settings from plain values, and a background queue now live in importable modules (`pipeline`, `planning`, `settings`, `runner`) that the command line and the app share, instead of in the command line code. The command line behaves exactly as before: compared on real runs (three formats, a two minute clip, a batch with a corrupt file, translation, `--skip-existing`, every error path) the subtitle files, output, messages and exit codes were identical, except that when two mistakes are made at once a different one may be reported first. These modules are not yet a documented, stable API.
+- CI also runs the desktop app's tests (without a display), checks that the command line installs and works without PySide6, and checks that the icon is in the wheel.
+
 ## [0.2.0] - 2026-11-08
 
 ### Added

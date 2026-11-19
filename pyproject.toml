@@ -84,6 +84,7 @@ include = [
     "/LICENSE",
     "/CHANGELOG.md",
     "/CONTRIBUTING.md",
+    "/packaging",
     "/pyproject.toml",
 ]
 
