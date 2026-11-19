@@ -1,5 +1,6 @@
 """`process_file`, the library entry point shared by the CLI and the desktop app."""
 
+import dataclasses
 import threading
 
 import pytest
@@ -154,3 +155,170 @@ def test_missing_punctuation_becomes_a_warning_in_the_result(fake_model, media, 
 
     assert len(result.warnings) == 1
     assert "almost no punctuation for talk.mp3" in result.warnings[0]
+
+
+# --- keeping the transcript so the subtitles can be built again ---------------------------------
+
+
+def test_recorded_segments_keep_what_the_segmenter_reads_and_nothing_else():
+    from types import SimpleNamespace
+
+    from subtitlemaker.pipeline import RecordedSegment, RecordedWord, record_segments
+
+    original = SimpleNamespace(
+        text=" Hello world.",
+        start=1,
+        end=2.5,
+        words=[SimpleNamespace(word=" Hello", start=1.0, end=1.5, probability=0.9)],
+        tokens=[1, 2, 3],  # heavy things that are not kept
+        avg_logprob=-0.2,
+    )
+    untimed = SimpleNamespace(text=" ...", start=3.0, end=4.0, words=None)
+    partly_timed = SimpleNamespace(
+        text=" a",
+        start=5.0,
+        end=6.0,
+        words=[SimpleNamespace(word=" a", start=None, end=None)],
+    )
+
+    first, second, third = record_segments([original, untimed, partly_timed])
+
+    assert first == RecordedSegment(" Hello world.", 1.0, 2.5, (RecordedWord(" Hello", 1.0, 1.5),))
+    assert isinstance(first.start, float)  # whole numbers become decimals
+    assert second.words is None  # "no word timing" stays distinct from "no words"
+    assert third.words == (RecordedWord(" a", None, None),)
+    assert not hasattr(first, "tokens") and not hasattr(first, "avg_logprob")
+
+
+def test_the_result_can_build_the_same_subtitles_again(fake_model, media, options, tmp_path):
+    result = process_file(fake_model, media, {"srt": tmp_path / "a.srt"}, options)
+
+    assert result.rebuild() == result.subtitles
+    assert result.style == options.style
+
+
+def test_the_result_can_build_other_subtitles_from_the_same_transcript(
+    fake_model, media, options, tmp_path
+):
+    from subtitlemaker.segmenter import build_subtitles
+
+    fake_model.segments = [
+        make_segment(
+            " one two three four five six seven eight nine ten eleven twelve.",
+            0.0,
+            12.0,
+            [make_word(f" w{i}", i * 1.0, i * 1.0 + 0.9) for i in range(12)],
+        )
+    ]
+    result = process_file(fake_model, media, {"srt": tmp_path / "a.srt"}, options)
+    narrow = dataclasses.replace(options.style, max_line_length=12, max_lines=1)
+
+    other = result.rebuild(narrow)
+
+    assert other != result.subtitles  # a different style gives different subtitles
+    assert len(other) > len(result.subtitles)
+    assert other == build_subtitles(result.segments, narrow, result.text_language)
+    assert result.rebuild() == result.subtitles  # and asking again for the original is unchanged
+
+
+@pytest.mark.parametrize(
+    ("changes", "language"),
+    [
+        ({}, "en"),  # the language Whisper detected
+        ({"task": "translate"}, "en"),  # translated text is English whatever was spoken
+        ({"multilingual": True}, None),  # it changes from segment to segment
+    ],
+)
+def test_the_result_remembers_the_language_the_line_breaking_assumed(
+    fake_model, media, options, tmp_path, changes, language
+):
+    fake_model.language = "sv" if changes.get("task") == "translate" else "en"
+
+    result = process_file(
+        fake_model, media, {"srt": tmp_path / "a.srt"}, dataclasses.replace(options, **changes)
+    )
+
+    assert result.text_language == language
+
+
+def test_the_recorded_transcript_is_not_the_models_own_objects(
+    fake_model, media, options, tmp_path
+):
+    result = process_file(fake_model, media, {"srt": tmp_path / "a.srt"}, options)
+
+    assert all(type(segment).__name__ == "RecordedSegment" for segment in result.segments)
+
+
+def test_the_recorded_snapshot_transcript_builds_the_stored_srt(tmp_path):
+    # The real transcript fixture: record it, build it again, write it, compare with the
+    # committed expected file. Nothing is lost by keeping only the recorded fields.
+    from subtitlemaker.formats.srt import write_srt
+    from subtitlemaker.pipeline import record_segments
+    from tests.conftest import FIXTURES_DIR
+    from tests.test_snapshot import STYLES, load_segments
+
+    recorded = record_segments(load_segments())
+
+    from subtitlemaker.segmenter import build_subtitles
+
+    for name, style in STYLES.items():
+        out = tmp_path / f"{name}.srt"
+        write_srt(build_subtitles(recorded, style), out)
+
+        assert out.read_text(encoding="utf-8") == (FIXTURES_DIR / f"expected-{name}.srt").read_text(
+            encoding="utf-8"
+        ), name
+
+
+def _sentence_where_style_and_language_matter(fake_model):
+    words = "She walked into the room and then the old man looked at the small dog on the floor"
+    words = words.split()
+    fake_model.segments = [
+        make_segment(
+            " " + " ".join(words) + ".",
+            0.0,
+            len(words) * 0.4,
+            [make_word(f" {w}", i * 0.4, i * 0.4 + 0.3) for i, w in enumerate(words)],
+        )
+    ]
+
+
+def test_the_result_rebuilds_with_the_style_the_run_used(fake_model, media, options, tmp_path):
+    from subtitlemaker.config import SubtitleStyle
+
+    _sentence_where_style_and_language_matter(fake_model)
+    used = dataclasses.replace(options, style=SubtitleStyle(max_line_length=16, linger=0.2))
+
+    result = process_file(fake_model, media, {"srt": tmp_path / "a.srt"}, used)
+
+    assert result.style == used.style
+    assert result.rebuild() == result.subtitles  # "the style used", not the defaults
+    assert result.rebuild(SubtitleStyle()) != result.subtitles  # and it does make a difference
+
+
+def test_the_result_rebuilds_with_the_language_the_run_assumed(
+    fake_model, media, options, tmp_path
+):
+    from subtitlemaker.config import SubtitleStyle
+    from subtitlemaker.segmenter import build_subtitles
+
+    _sentence_where_style_and_language_matter(fake_model)
+    narrow = dataclasses.replace(options, style=SubtitleStyle(max_line_length=16))
+    mixed = dataclasses.replace(narrow, multilingual=True)
+
+    english = process_file(fake_model, media, {"srt": tmp_path / "a.srt"}, narrow)
+    unknown = process_file(fake_model, media, {"srt": tmp_path / "b.srt"}, mixed)
+
+    # The language really changes where lines break in this sentence ...
+    assert english.subtitles != unknown.subtitles
+    # ... so each result has to rebuild with its own.
+    assert (
+        english.rebuild()
+        == english.subtitles
+        == build_subtitles(english.segments, narrow.style, "en")
+    )
+    assert (
+        unknown.rebuild()
+        == unknown.subtitles
+        == build_subtitles(unknown.segments, narrow.style, None)
+    )

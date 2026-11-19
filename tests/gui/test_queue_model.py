@@ -491,3 +491,30 @@ def test_count_by_status(model, tmp_path):
     assert model.count(Status.RUNNING) == 1
     assert model.count(Status.RUNNING, Status.WAITING) == 2
     assert model.count(Status.DONE) == 0
+
+
+# --- keeping what a run produced ------------------------------------------------------------
+
+
+def test_a_finished_file_keeps_its_result(model, tmp_path):
+    (a,) = touch(tmp_path, "a.mp3")
+    model.add_paths([a])
+    assert model.item(0).result is None
+
+    marker = object()
+    model.on_finished(a, [], marker)
+
+    assert model.item(0).result is marker
+
+
+def test_a_result_is_forgotten_when_the_file_is_queued_or_run_again(model, tmp_path):
+    a, b = touch(tmp_path, "a.mp3", "b.mp3")
+    model.add_paths([a, b])
+    model.on_finished(a, [], object())
+    model.on_finished(b, [], object())
+
+    model.requeue([0])
+    model.mark_waiting(b, {})
+
+    assert model.item(0).result is None  # queued again
+    assert model.item(1).result is None  # about to run again: the old transcript is not current

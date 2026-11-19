@@ -10,10 +10,11 @@ import dataclasses
 import logging
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
 from typing import Any
 
+from ._types import Cue, SegmentLike
 from .config import ModelConfig, SubtitleStyle
 from .formats import FORMATS
 from .log import LOGGER_NAME
@@ -53,6 +54,56 @@ class Options:
 
 
 @dataclasses.dataclass(frozen=True)
+class RecordedWord:
+    """A word of a transcript: what the segmenter reads from faster-whisper's `Word`."""
+
+    word: str
+    start: float | None
+    end: float | None
+
+
+@dataclasses.dataclass(frozen=True)
+class RecordedSegment:
+    """A segment of a transcript: what the segmenter reads from faster-whisper's `Segment`."""
+
+    text: str
+    start: float
+    end: float
+    words: tuple[RecordedWord, ...] | None
+
+
+def record_segments(segments: Iterable[SegmentLike]) -> list[RecordedSegment]:
+    """
+    Light copies of Whisper segments, holding only what `build_subtitles` reads.
+
+    The originals carry token ids, probabilities and more, which is wasteful to
+    keep for every file of a long queue; these are enough to build the same
+    subtitles again, with other settings, without running the model.
+    """
+
+    return [
+        RecordedSegment(
+            text=segment.text,
+            start=float(segment.start),
+            end=float(segment.end),
+            words=(
+                None
+                if segment.words is None
+                else tuple(
+                    RecordedWord(
+                        word=word.word,
+                        start=None if word.start is None else float(word.start),
+                        end=None if word.end is None else float(word.end),
+                    )
+                    for word in segment.words
+                )
+            ),
+        )
+        for segment in segments
+    ]
+
+
+@dataclasses.dataclass(frozen=True)
 class FileResult:
     """What `process_file` did for one file."""
 
@@ -62,9 +113,16 @@ class FileResult:
     elapsed: float  # seconds spent transcribing
     language: str
     language_probability: float
-    segments: list[Any]  # the raw Whisper segments, kept so cues can be rebuilt
-    subtitles: list[Any]
+    segments: Sequence[RecordedSegment]  # the transcript, to build the cues again
+    subtitles: list[Cue]
     warnings: list[str]
+    style: SubtitleStyle  # the style `subtitles` were built with
+    text_language: str | None  # the language the line breaking assumed (None: mixed or unknown)
+
+    def rebuild(self, style: SubtitleStyle | None = None) -> list[Cue]:
+        """The subtitles built again from the transcript, with `style` (default: the one used)."""
+
+        return build_subtitles(self.segments, style or self.style, self.text_language)
 
 
 def process_file(
@@ -221,7 +279,8 @@ def process_file(
         log.warning("%s", message)
         warnings.append(message)
 
-    subtitles = build_subtitles(processed_segments, options.style, text_language)
+    recorded = record_segments(processed_segments)
+    subtitles = build_subtitles(recorded, options.style, text_language)
 
     log.info("Generated %d subtitle cues.", len(subtitles))
 
@@ -244,9 +303,11 @@ def process_file(
         elapsed=elapsed,
         language=info.language,
         language_probability=info.language_probability,
-        segments=processed_segments,
+        segments=recorded,
         subtitles=subtitles,
         warnings=warnings,
+        style=options.style,
+        text_language=text_language,
     )
 
 

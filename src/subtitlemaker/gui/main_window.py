@@ -8,6 +8,7 @@ from PySide6.QtGui import QCloseEvent, QIcon
 from PySide6.QtWidgets import QMainWindow, QMessageBox, QScrollArea, QTabWidget
 
 from .. import __version__
+from ..config import SubtitleStyle
 from ..settings import Settings
 from .bridge import RunnerBridge
 from .log_pane import LogPane
@@ -68,6 +69,8 @@ class MainWindow(QMainWindow):
         self.settings_panel.problem_changed.connect(self._show_settings_problem)
         self._show_settings_problem(self.settings_panel.error_label.text())
 
+        self.panel.style_chosen.connect(self._use_style)
+
         self.log_pane = LogPane()
         self.log_pane.attach()
         self.tabs.addTab(self.log_pane, LOG_TAB)
@@ -75,6 +78,11 @@ class MainWindow(QMainWindow):
         self.tabs.currentChanged.connect(self._tab_changed)
 
         self.setCentralWidget(self.tabs)
+
+    def _use_style(self, style: SubtitleStyle) -> None:
+        """A style tried in a preview becomes the style for new files."""
+
+        self.settings_panel.apply_style(style)
 
     def _point_at_log(self) -> None:
         """A warning or error was logged: mark the Log tab unless it is the one being shown."""
@@ -101,6 +109,7 @@ class MainWindow(QMainWindow):
 
         # Stops the worker thread. A model that is still loading cannot be
         # interrupted, so this can take a moment.
+        self.panel.close_previews()
         self.bridge.cancel_all()
         self.bridge.shutdown()
         self.prober.shutdown()

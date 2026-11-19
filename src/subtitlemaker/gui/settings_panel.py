@@ -21,11 +21,12 @@ from PySide6.QtWidgets import (
 )
 
 from ..cli import option_help
-from ..config import DEVICES, ConfigError
+from ..config import DEVICES, ConfigError, SubtitleStyle
 from ..formats import FORMATS
 from ..languages import known_language_codes
 from ..settings import TASKS, Settings
 from .settings_form import FormValues, base_values, decode, encode, to_settings
+from .style_form import STYLE_FIELDS, StyleForm
 
 SETTINGS_KEY = "settings/changes"
 
@@ -38,20 +39,6 @@ _TASK_LABELS = {
     "transcribe": "Transcribe (subtitles in the spoken language)",
     "translate": "Translate to English",
 }
-
-# Subtitle style fields: (name, label, kind, minimum, maximum, step)
-_STYLE_ROWS: tuple[tuple[str, str, str, float, float, float], ...] = (
-    ("max_line_length", "Characters per line", "int", 10, 200, 1),
-    ("max_lines", "Lines per subtitle", "lines", 1, 2, 1),
-    ("max_cps", "Characters per second", "float", 1, 100, 1),
-    ("min_duration", "Shortest subtitle (s)", "float", 0.1, 60, 0.1),
-    ("max_duration", "Longest subtitle (s)", "float", 0.5, 60, 0.5),
-    ("min_gap", "Gap between subtitles (s)", "float", 0, 5, 0.05),
-    ("max_pause", "Pause that starts a new subtitle (s)", "float", 0.1, 30, 0.1),
-    ("linger", "Keep on screen after speech (s)", "float", 0, 5, 0.1),
-    ("close_gap", "Close gaps shorter than (s)", "float", 0, 5, 0.1),
-)
-
 
 class CollapsibleSection(QWidget):
     """A heading that shows or hides what is under it."""
@@ -132,6 +119,12 @@ class SettingsPanel(QWidget):
 
         self._validate()
 
+    def apply_style(self, style: SubtitleStyle) -> None:
+        """Make `style` the subtitle style of the form, as if the user had typed it."""
+
+        self.style_form.write_style(style)
+        self._edited()
+
     def widget(self, name: str) -> QWidget:
         """The editor of the form field `name` (a field of `FormValues`)."""
 
@@ -176,20 +169,11 @@ class SettingsPanel(QWidget):
             self._text("initial_prompt", "Optional, e.g. a punctuated sentence", "prompt"),
         )
 
-        style = self._form()
+        self.style_form = StyleForm(self._help)
+        self.style_form.edited.connect(self._edited)
 
-        for name, label, kind, low, high, step in _STYLE_ROWS:
-
-            if kind == "lines":
-                widget: QWidget = self._choice(name, [("1", 1), ("2", 2)], tip_key=name)
-
-            elif kind == "int":
-                widget = self._spin(name, int(low), int(high), int(step))
-
-            else:
-                widget = self._decimal(name, low, high, step)
-
-            style.addRow(label, widget)
+        for name in STYLE_FIELDS:
+            self._register_style_field(name)
 
         advanced = self._form()
         advanced.addRow("Device", self._combo("device", DEVICES, "device", editable=False))
@@ -213,7 +197,7 @@ class SettingsPanel(QWidget):
             "Language detection confidence", self._decimal("detect_threshold", 0.05, 1, 0.05)
         )
 
-        self.style_section = CollapsibleSection("Subtitle style", _wrap(style))
+        self.style_section = CollapsibleSection("Subtitle style", self.style_form)
         self.advanced_section = CollapsibleSection("Advanced", _wrap(advanced))
 
         self.reset_button = QPushButton("Reset to defaults")
@@ -233,6 +217,17 @@ class SettingsPanel(QWidget):
         layout.addStretch(1)
 
     # --- widget helpers -------------------------------------------------------------------
+
+    def _register_style_field(self, name: str) -> None:
+        """Make the style form's editor of `name` a field of this form."""
+
+        def read() -> Any:
+            return self.style_form.value(name)
+
+        def write(value: Any) -> None:
+            self.style_form.set_value(name, value)
+
+        self._fields[name] = (self.style_form.widget(name), read, write)
 
     def _form(self) -> QFormLayout:
         form = QFormLayout()

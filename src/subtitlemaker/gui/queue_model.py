@@ -13,6 +13,7 @@ from typing import Any
 
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, QPersistentModelIndex, Qt
 
+from ..pipeline import FileResult
 from ..planning import expand_inputs
 
 # `index.data(PROGRESS_ROLE)`: 0.0 to 1.0 for a running file, `None` otherwise.
@@ -52,6 +53,7 @@ class QueueItem:
     message: str = ""  # why it failed, or its warnings
     outputs: dict[str, Path] = dataclasses.field(default_factory=dict)
     started_at: float | None = None  # clock reading at the first progress report
+    result: FileResult | None = None  # what the run produced (the transcript), once done
 
     @property
     def fraction(self) -> float | None:
@@ -269,6 +271,7 @@ class QueueModel(QAbstractTableModel):
                 item.position = 0.0
                 item.message = ""
                 item.started_at = None
+                item.result = None
                 self._changed(row)
                 count += 1
 
@@ -284,7 +287,9 @@ class QueueModel(QAbstractTableModel):
             self._changed(row)
 
     def mark_waiting(self, path: Path, outputs: dict[str, Path]) -> None:
-        self._update(path, status=Status.WAITING, outputs=outputs, position=0.0, message="")
+        self._update(
+            path, status=Status.WAITING, outputs=outputs, position=0.0, message="", result=None
+        )
 
     def mark_skipped(self, path: Path, outputs: dict[str, Path]) -> None:
         self._update(path, status=Status.SKIPPED, outputs=outputs, message="output exists")
@@ -313,8 +318,10 @@ class QueueModel(QAbstractTableModel):
 
         self._changed(row)
 
-    def on_finished(self, path: Path, warnings: Sequence[str] = ()) -> None:
-        self._update(path, status=Status.DONE, message="; ".join(warnings))
+    def on_finished(
+        self, path: Path, warnings: Sequence[str] = (), result: FileResult | None = None
+    ) -> None:
+        self._update(path, status=Status.DONE, message="; ".join(warnings), result=result)
 
     def on_failed(self, path: Path, message: str) -> None:
         self._update(path, status=Status.FAILED, message=message)

@@ -17,17 +17,31 @@ class Cue(TypedDict):
     text: str
 
 
+# Read-only on purpose: the segmenter only reads these, so immutable objects
+# (faster-whisper's own, and the recorded copies in `pipeline`) qualify too.
 class WordLike(Protocol):
-    word: str
-    start: float | None
-    end: float | None
+    @property
+    def word(self) -> str: ...
+
+    @property
+    def start(self) -> float | None: ...
+
+    @property
+    def end(self) -> float | None: ...
 
 
 class SegmentLike(Protocol):
-    text: str
-    start: float
-    end: float
-    words: Sequence[WordLike] | None
+    @property
+    def text(self) -> str: ...
+
+    @property
+    def start(self) -> float: ...
+
+    @property
+    def end(self) -> float: ...
+
+    @property
+    def words(self) -> Sequence[WordLike] | None: ...
 
 
 # A word of a segment: its text (with its own leading space) and, when

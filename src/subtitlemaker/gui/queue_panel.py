@@ -3,7 +3,7 @@
 from collections.abc import Callable
 from pathlib import Path
 
-from PySide6.QtCore import QPoint, QUrl
+from PySide6.QtCore import QModelIndex, QPoint, Qt, QUrl, Signal
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ..cli import option_help
 from ..config import ConfigError
 from ..media import MEDIA_EXTENSIONS
 from ..pipeline import FileResult
@@ -27,6 +28,7 @@ from ..progress import format_time
 from ..runner import Job
 from ..settings import Settings
 from .bridge import RunnerBridge
+from .preview import CuePreviewDialog
 from .probe import DurationProber
 from .queue_model import LOCKED, QueueModel, Status
 from .queue_view import FileQueueView
@@ -45,6 +47,9 @@ _STARTABLE = (Status.QUEUED, Status.CANCELLED)
 class QueuePanel(QWidget):
     """Lists the files to transcribe and runs them through a `RunnerBridge`."""
 
+    # A style the user tried in a preview and wants to keep for new files.
+    style_chosen = Signal(object)
+
     def __init__(
         self,
         bridge: RunnerBridge,
@@ -60,6 +65,9 @@ class QueuePanel(QWidget):
 
         # Why the first file of this run failed, for the summary at the end.
         self._first_error = ""
+
+        # The open previews, by file: asking again for one raises it instead of opening a second.
+        self._previews: dict[Path, CuePreviewDialog] = {}
 
         self.model = QueueModel(self)
 
@@ -94,6 +102,10 @@ class QueuePanel(QWidget):
         self.up_button = QPushButton("Move up")
         self.down_button = QPushButton("Move down")
         self.requeue_button = QPushButton("Queue again")
+        self.preview_button = QPushButton("Preview…")
+        self.preview_button.setToolTip(
+            "Look at the subtitles of a finished file and try other styles"
+        )
 
         # Two short rows rather than one long one: the window can be narrow
         # (a tiling window manager often makes it so).
@@ -103,6 +115,7 @@ class QueuePanel(QWidget):
             adding.addWidget(widget)
 
         adding.addStretch(1)
+        adding.addWidget(self.preview_button)
 
         editing = QHBoxLayout()
 
@@ -169,6 +182,8 @@ class QueuePanel(QWidget):
         self.up_button.clicked.connect(self.move_up)
         self.down_button.clicked.connect(self.move_down)
         self.requeue_button.clicked.connect(self.requeue_selected)
+        self.preview_button.clicked.connect(self.preview_selected)
+        self.view.doubleClicked.connect(self._double_clicked)
         self.start_button.clicked.connect(self.start)
         self.cancel_button.clicked.connect(self.cancel)
         self.folder_button.clicked.connect(self.choose_output_folder)
@@ -377,7 +392,7 @@ class QueuePanel(QWidget):
         self.detail.setText(text)
 
     def _on_finished(self, job: Job, result: FileResult) -> None:
-        self.model.on_finished(job.input_file, result.warnings)
+        self.model.on_finished(job.input_file, result.warnings, result)
 
     def _on_failed(self, job: Job, message: str) -> None:
         self.model.on_failed(job.input_file, message)
@@ -406,6 +421,56 @@ class QueuePanel(QWidget):
         self.detail.setToolTip(text)
         self._update_buttons()
 
+    # --- previewing the subtitles ---------------------------------------------------------------
+
+    def preview_selected(self) -> None:
+        rows = self.view.selected_rows()
+
+        if len(rows) == 1:
+            self.open_preview(rows[0])
+
+    def _double_clicked(self, index: QModelIndex) -> None:
+        item = self.model.item(index.row())
+
+        if item.result is not None:
+            self.open_preview(index.row())
+
+    def open_preview(self, row: int) -> CuePreviewDialog | None:
+        """Show the subtitles of a finished file, where their style can be tried out."""
+
+        item = self.model.item(row)
+
+        if item.result is None:
+            self._warn("No preview", f"{item.path.name} has not been transcribed in this session.")
+            return None
+
+        existing = self._previews.get(item.path)
+
+        if existing is not None:
+            existing.raise_()
+            existing.activateWindow()
+
+            return existing
+
+        dialog = CuePreviewDialog(item.result, option_help(), self.window())
+        dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        dialog.style_chosen.connect(self.style_chosen)
+        dialog.destroyed.connect(lambda *_, path=item.path: self._previews.pop(path, None))
+
+        self._previews[item.path] = dialog
+        dialog.show()
+
+        return dialog
+
+    def previews(self) -> list[CuePreviewDialog]:
+        """The previews that are open."""
+
+        return list(self._previews.values())
+
+    def close_previews(self) -> None:
+        for dialog in list(self._previews.values()):
+            dialog.close()
+
     # --- the context menu -------------------------------------------------------------------------
 
     def open_output_folder(self, row: int) -> bool:
@@ -429,6 +494,9 @@ class QueuePanel(QWidget):
         row = index.row()
         item = self.model.item(row)
         menu = QMenu(self)
+
+        if item.result is not None:
+            menu.addAction("Preview subtitles…", lambda: self.open_preview(row))
 
         if item.outputs and item.status in (Status.DONE, Status.SKIPPED):
             menu.addAction("Show subtitles in folder", lambda: self.open_output_folder(row))
@@ -456,6 +524,7 @@ class QueuePanel(QWidget):
         self.remove_button.setEnabled(any(i.status not in LOCKED for i in items))
         self.clear_button.setEnabled(self.model.count() > self.model.count(*LOCKED))
         self.requeue_button.setEnabled(any(i.status in _FINISHED for i in items))
+        self.preview_button.setEnabled(len(items) == 1 and items[0].result is not None)
 
         single = len(rows) == 1
         self.up_button.setEnabled(single and rows[0] > 0)
