@@ -1,11 +1,13 @@
 """Shared test helpers."""
 
+import logging
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 from subtitlemaker import transcribe
+from subtitlemaker.log import LOGGER_NAME
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
@@ -20,6 +22,16 @@ def make_word(word, start, end):
     """A stand-in for a faster-whisper Word (Whisper puts a space before each word)."""
 
     return SimpleNamespace(word=word, start=start, end=end, probability=1.0)
+
+
+@pytest.fixture(autouse=True)
+def _reset_package_log_level():
+    """`setup_logging(quiet=True)` leaves the package logger at WARNING for the whole session,
+    which would hide INFO records from `caplog` in whatever test runs next."""
+
+    yield
+
+    logging.getLogger(LOGGER_NAME).setLevel(logging.NOTSET)
 
 
 @pytest.fixture

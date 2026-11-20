@@ -20,6 +20,7 @@ STYLE_ROWS: tuple[tuple[str, str, str, float, float, float], ...] = (
     ("max_pause", "Pause that starts a new subtitle (s)", "float", 0.1, 30, 0.1),
     ("linger", "Keep on screen after speech (s)", "float", 0, 5, 0.1),
     ("close_gap", "Close gaps shorter than (s)", "float", 0, 5, 0.1),
+    ("start_offset", "Show subtitles later by (s)", "float", -2, 2, 0.05),
 )
 
 STYLE_FIELDS = tuple(field.name for field in dataclasses.fields(SubtitleStyle))

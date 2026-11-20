@@ -401,6 +401,17 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
 
+    style_group.add_argument(
+        "--start-offset",
+        type=float,
+        metavar="SEC",
+        help=(
+            "Move every subtitle this much later (negative: earlier). Whisper's word "
+            "times run early, so cues otherwise appear before the voice; 0 turns "
+            "it off (default: 0.15)"
+        ),
+    )
+
     return parser
 
 

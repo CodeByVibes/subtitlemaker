@@ -4,6 +4,9 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Changed
+- Subtitles now appear 0.15 s later than before (new `--start-offset`, and `start_offset` in the `[style]` section; 0 gives the old timing). Whisper's word times run early: on 17 episodes in English and Swedish (large-v3), cues started a median 0.35 s before the voice, and 0.29 s (turbo) and 0.22 s (small) on the same material. With the offset the median is 0.21, 0.15 and 0.08 s early, and the share of cues that start more than 0.15 s after the voice stays within 2 points on all three models (20% to 22% on large-v3). Cues that were built from whole segments, because a segment had no word timing, are not moved. The setting is in the desktop app's style form too. Output is not byte-identical to 0.3.0 unless you pass `--start-offset 0`.
+
 ## [0.3.0] - 2026-11-19
 
 ### Added

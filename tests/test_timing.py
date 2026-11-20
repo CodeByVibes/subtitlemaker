@@ -199,3 +199,49 @@ def test_closing_a_gap_respects_max_duration(segment):
 def test_linger_and_close_gap_must_be_finite_and_not_negative(name, value):
     with pytest.raises(ConfigError, match=name):
         SubtitleStyle(**{name: value})
+
+
+# --- start_offset (SUBMAKER-69): Whisper's word times run early -------------------------
+
+
+def _timed(start, end, text=" Hello"):
+    from tests.conftest import make_word
+
+    return make_segment(text, start, end, [make_word(text, start, end)])
+
+
+def test_start_offset_defaults_to_150_ms():
+    assert SubtitleStyle().start_offset == 0.15
+
+
+def test_start_offset_moves_a_cue_built_from_word_times_later():
+    plain = build_subtitles([_timed(2.0, 2.5)], SubtitleStyle(start_offset=0.0))
+    moved = build_subtitles([_timed(2.0, 2.5)], SubtitleStyle(start_offset=0.15))
+
+    assert moved[0]["start"] == pytest.approx(plain[0]["start"] + 0.15)
+    assert moved[0]["end"] == pytest.approx(plain[0]["end"] + 0.15)
+
+
+def test_start_offset_zero_changes_nothing():
+    assert build_subtitles([_timed(2.0, 2.5)], SubtitleStyle(start_offset=0.0))[0]["start"] == 2.0
+
+
+def test_negative_start_offset_moves_earlier_but_not_before_zero():
+    early = build_subtitles([_timed(2.0, 2.5)], SubtitleStyle(start_offset=-0.5))
+    clamped = build_subtitles([_timed(0.2, 0.6)], SubtitleStyle(start_offset=-0.5))
+
+    assert early[0]["start"] == pytest.approx(1.5)
+    assert clamped[0]["start"] == 0.0
+
+
+def test_start_offset_does_not_move_cues_without_word_times(segment):
+    plain = build_subtitles([segment("Hello there.", 1.0, 3.0)], SubtitleStyle(start_offset=0.0))
+    moved = build_subtitles([segment("Hello there.", 1.0, 3.0)], SubtitleStyle(start_offset=0.5))
+
+    assert moved == plain
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf")])
+def test_start_offset_must_be_finite(value):
+    with pytest.raises(ConfigError, match="start_offset"):
+        SubtitleStyle(start_offset=value)

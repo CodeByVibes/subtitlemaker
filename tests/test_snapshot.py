@@ -20,9 +20,14 @@ from subtitlemaker.segmenter import build_subtitles
 from tests.conftest import FIXTURES_DIR as FIXTURES
 from tests.conftest import make_segment, make_word
 
+# "default" and "one-line" are the stored files from before `start_offset` existed, so they
+# also prove that `start_offset=0` changes nothing. "offset" is today's default style.
 STYLES = {
-    "default": SubtitleStyle(),
-    "one-line": SubtitleStyle(max_line_length=32, max_lines=1, min_duration=1.5, max_cps=15),
+    "default": SubtitleStyle(start_offset=0.0),
+    "one-line": SubtitleStyle(
+        max_line_length=32, max_lines=1, min_duration=1.5, max_cps=15, start_offset=0.0
+    ),
+    "offset": SubtitleStyle(),
 }
 
 

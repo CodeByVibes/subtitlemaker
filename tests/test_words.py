@@ -6,7 +6,7 @@ from subtitlemaker.config import ModelConfig, SubtitleStyle
 from subtitlemaker.segmenter import build_subtitles
 from tests.conftest import make_segment, make_word
 
-STYLE = SubtitleStyle()
+STYLE = SubtitleStyle(start_offset=0.0)  # these tests follow the raw word times
 
 
 def words_segment(spec, start=None, end=None):

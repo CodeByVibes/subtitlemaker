@@ -120,6 +120,7 @@ def test_the_default_form_gives_the_default_settings():
         ({"max_pause": 2.0}, lambda s: s.style.max_pause == 2.0),
         ({"linger": 0.0}, lambda s: s.style.linger == 0.0),
         ({"close_gap": 0.0}, lambda s: s.style.close_gap == 0.0),
+        ({"start_offset": 0.3}, lambda s: s.style.start_offset == 0.3),
     ],
     ids=lambda value: next(iter(value)) if isinstance(value, dict) else "",
 )
@@ -134,7 +135,7 @@ def test_every_form_field_is_covered_by_that_table():
         "initial_prompt", "hallucination_silence_threshold", "formats", "task", "language",
         "multilingual", "condition_on_previous_text", "detect_segments", "detect_threshold",
         "max_line_length", "max_lines", "max_cps", "min_duration", "max_duration", "min_gap",
-        "max_pause", "linger", "close_gap",
+        "max_pause", "linger", "close_gap", "start_offset",
     }  # fmt: skip
 
     assert {f.name for f in dataclasses.fields(FormValues)} == covered

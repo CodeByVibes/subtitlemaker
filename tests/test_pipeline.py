@@ -13,7 +13,7 @@ def media(tmp_path):
 
 
 def test_cue_follows_the_words_not_the_padded_segment(run, fake_model, media):
-    assert run(str(media), "-q", "--linger", "0") == 0  # speech timing only
+    assert run(str(media), "-q", "--linger", "0", "--start-offset", "0") == 0  # speech timing only
 
     srt = (media.with_suffix(".srt")).read_text(encoding="utf-8")
     assert srt == "1\n00:00:01,000 --> 00:00:02,400\nHello world.\n\n"
@@ -44,7 +44,7 @@ def test_config_file_can_turn_word_timestamps_off(run, fake_model, media, tmp_pa
 def test_output_option_and_style_flags_are_applied(run, fake_model, media, tmp_path):
     out = tmp_path / "custom.srt"
 
-    assert run(str(media), "-q", "-o", str(out), "--min-duration", "2") == 0
+    assert run(str(media), "-q", "-o", str(out), "--min-duration", "2", "--start-offset", "0") == 0
 
     assert "00:00:01,000 --> 00:00:03,000" in out.read_text()
 
@@ -117,13 +117,13 @@ def test_linger_can_be_set_in_the_config_file(run, fake_model, media, tmp_path):
     config = tmp_path / "c.toml"
     config.write_text("[style]\nlinger = 0.2\n")
 
-    run(media, "-q", "--config", config)
+    run(media, "-q", "--config", config, "--start-offset", "0")
 
     assert "00:00:01,000 --> 00:00:02,600" in media.with_suffix(".srt").read_text()
 
 
 def test_linger_flag_overrides_the_default(run, fake_model, media):
-    run(media, "-q", "--linger", "1")
+    run(media, "-q", "--linger", "1", "--start-offset", "0")
 
     assert "00:00:01,000 --> 00:00:03,400" in media.with_suffix(".srt").read_text()
 
@@ -235,3 +235,13 @@ def test_invalid_hallucination_threshold_is_a_usage_error(run, fake_model, media
         run(media, "--hallucination-silence-threshold", value)
 
     assert exit_info.value.code == 2
+
+
+def test_start_offset_flag_and_config_file_move_the_cue(run, fake_model, media, tmp_path):
+    run(media, "-q", "--linger", "0", "--start-offset", "0.5")
+    assert "00:00:01,500 --> 00:00:02,900" in media.with_suffix(".srt").read_text()
+
+    config = tmp_path / "c.toml"
+    config.write_text("[style]\nstart_offset = 0.25\n")
+    run(media, "-q", "--linger", "0", "--config", config)
+    assert "00:00:01,250 --> 00:00:02,650" in media.with_suffix(".srt").read_text()

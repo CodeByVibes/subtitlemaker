@@ -73,6 +73,7 @@ class FormValues:
     max_pause: float = SubtitleStyle.max_pause
     linger: float = SubtitleStyle.linger
     close_gap: float = SubtitleStyle.close_gap
+    start_offset: float = SubtitleStyle.start_offset
 
 
 def base_values() -> tuple[FormValues, str]:

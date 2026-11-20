@@ -32,6 +32,9 @@ class SubtitleStyle:
     max_pause: float = 1.0  # Silence between two words that starts a new subtitle (seconds)
     linger: float = 0.5  # Time a subtitle stays up after its speech ends, if free (seconds)
     close_gap: float = 0.5  # A shorter gap between two subtitles is closed (seconds)
+    # Whisper's word times run early (measured 0.2-0.35 s before the voice, SUBMAKER-69);
+    # this is added to every word time of a timed cue. Negative values are allowed.
+    start_offset: float = 0.15
 
     def __post_init__(self) -> None:
         if not isinstance(self.max_line_length, int) or self.max_line_length < 1:
@@ -43,7 +46,7 @@ class SubtitleStyle:
         # nan compares False with everything, so "<= 0" alone lets it through.
         for name in (
             "max_cps", "min_duration", "max_duration", "max_pause", "min_gap",
-            "linger", "close_gap",
+            "linger", "close_gap", "start_offset",
         ):
             if not math.isfinite(getattr(self, name)):
                 raise ConfigError(f"{name} must be a finite number")

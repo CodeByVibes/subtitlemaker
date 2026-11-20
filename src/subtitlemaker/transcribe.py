@@ -264,6 +264,7 @@ def load_for_run(
     log.debug("  Max pause:        %ss", style.max_pause)
     log.debug("  Linger:           %ss", style.linger)
     log.debug("  Close gaps under: %ss", style.close_gap)
+    log.debug("  Start offset:     %ss", style.start_offset)
 
     log.info("Loading Whisper model...")
 

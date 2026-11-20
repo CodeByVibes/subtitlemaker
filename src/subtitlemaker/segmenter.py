@@ -390,10 +390,14 @@ def _seconds(value: float | None) -> float:
 def _timed_cues(tokens: Sequence[Token], style: SubtitleStyle) -> list[Cue]:
     """Cues for a run of tokens that all have word timing."""
 
+    # Whisper's word times run early; the offset moves the cue onto the voice.
+    # Never before the start of the media.
+    offset = style.start_offset
+
     return [
         {
-            "start": _seconds(chunk[0][1]),
-            "end": max(_seconds(chunk[-1][2]), _seconds(chunk[0][1])),
+            "start": max(0.0, _seconds(chunk[0][1]) + offset),
+            "end": max(0.0, max(_seconds(chunk[-1][2]), _seconds(chunk[0][1])) + offset),
             "text": _join(chunk),
         }
         for chunk in _chunk(tokens, style)

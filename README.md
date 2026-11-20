@@ -127,8 +127,9 @@ If Whisper writes text during long silences or music that nobody says, try `--ha
 | `--max-pause`       | 1.0     | Silence between two words that starts a new subtitle (seconds). |
 | `--linger`          | 0.5     | Time a subtitle stays up after its speech ends, if the time is free (seconds). 0 turns it off. |
 | `--close-gap`       | 0.5     | A gap between two subtitles shorter than this is closed, so text doesn't flicker off and on (seconds). 0 turns it off. |
+| `--start-offset`    | 0.15    | Move every subtitle this much later (seconds; negative moves it earlier). Whisper's word times run early. 0 turns it off. |
 
-Timing follows the speech. A subtitle appears when its first word is spoken and stays up a little after the last one (`--linger`). If it would be too short or too quick to read, it is held longer, but only into free time: it never delays or overlaps the next subtitle. When the next subtitle follows within `--close-gap`, the first one stays up until just before it (`--min-gap`) instead of blinking off.
+Timing follows the speech. Whisper's word times run early (on the shows I measured, 0.2 to 0.35 s before the voice, depending on the model), so everything is moved 0.15 s later (`--start-offset`). A subtitle appears when its first word is spoken and stays up a little after the last one (`--linger`). If it would be too short or too quick to read, it is held longer, but only into free time: it never delays or overlaps the next subtitle. When the next subtitle follows within `--close-gap`, the first one stays up until just before it (`--min-gap`) instead of blinking off.
 
 Lines are broken at a sentence end where possible, then at a comma, and otherwise kept about equally long. Names stay on one line, and for English and Swedish a line doesn't end on a word like "the", "of" or "och" when there is a better place. In dialogue written with dashes ("–Ja? –Nej."), each speaker gets their own line, and a third speaker starts a new subtitle. If two lines are spoken too close together, the first one is allowed to be shorter than `--min-duration`. A long silence in the middle of a sentence (a laugh track, music) starts a new subtitle, so words are never shown long before they are spoken.
 
@@ -147,6 +148,7 @@ min_gap = 0.05
 max_pause = 1.0
 linger = 0.5
 close_gap = 0.5
+start_offset = 0.15
 
 [model]
 name = "turbo"            # auto, a size, a Hugging Face repo id or a path
