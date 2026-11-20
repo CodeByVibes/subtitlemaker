@@ -21,7 +21,8 @@ def test_defaults():
     style, model = SubtitleStyle(), ModelConfig()
 
     assert (style.max_line_length, style.max_lines, style.max_cps) == (42, 2, 20)
-    assert (style.min_duration, style.max_duration, style.min_gap) == (1.0, 7.0, 0.05)
+    assert (style.min_duration, style.max_duration, style.min_gap) == (1.3, 7.0, 0.05)
+    assert (style.linger, style.close_gap, style.start_offset) == (1.0, 0.5, 0.15)
     assert (model.name, model.device, model.compute_type) == ("auto", "auto", "auto")
 
 

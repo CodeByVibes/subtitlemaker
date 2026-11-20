@@ -44,7 +44,21 @@ def test_config_file_can_turn_word_timestamps_off(run, fake_model, media, tmp_pa
 def test_output_option_and_style_flags_are_applied(run, fake_model, media, tmp_path):
     out = tmp_path / "custom.srt"
 
-    assert run(str(media), "-q", "-o", str(out), "--min-duration", "2", "--start-offset", "0") == 0
+    assert (
+        run(
+            str(media),
+            "-q",
+            "-o",
+            str(out),
+            "--min-duration",
+            "2",
+            "--start-offset",
+            "0",
+            "--linger",
+            "0",
+        )
+        == 0
+    )
 
     assert "00:00:01,000 --> 00:00:03,000" in out.read_text()
 

@@ -121,11 +121,11 @@ If Whisper writes text during long silences or music that nobody says, try `--ha
 | `--max-line-length` | 42      | Maximum characters per line.                         |
 | `--max-lines`       | 2       | Lines per subtitle, 1 or 2.                          |
 | `--max-cps`         | 20      | Reading speed: characters per second.                |
-| `--min-duration`    | 1.0     | Shortest time a subtitle stays on screen (seconds).  |
+| `--min-duration`    | 1.3     | Shortest time a subtitle stays on screen (seconds).  |
 | `--max-duration`    | 7.0     | Longest time a subtitle stays on screen (seconds).   |
 | `--min-gap`         | 0.05    | Smallest gap between two subtitles (seconds).        |
 | `--max-pause`       | 1.0     | Silence between two words that starts a new subtitle (seconds). |
-| `--linger`          | 0.5     | Time a subtitle stays up after its speech ends, if the time is free (seconds). 0 turns it off. |
+| `--linger`          | 1.0     | Time a subtitle stays up after its speech ends, if the time is free (seconds). 0 turns it off. |
 | `--close-gap`       | 0.5     | A gap between two subtitles shorter than this is closed, so text doesn't flicker off and on (seconds). 0 turns it off. |
 | `--start-offset`    | 0.15    | Move every subtitle this much later (seconds; negative moves it earlier). Whisper's word times run early. 0 turns it off. |
 
@@ -142,11 +142,11 @@ Options you always use can go in `~/.config/subtitlemaker/config.toml` (or `$XDG
 max_line_length = 38
 max_lines = 2
 max_cps = 17
-min_duration = 1.0
+min_duration = 1.3
 max_duration = 6.0
 min_gap = 0.05
 max_pause = 1.0
-linger = 0.5
+linger = 1.0
 close_gap = 0.5
 start_offset = 0.15
 

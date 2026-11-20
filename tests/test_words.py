@@ -6,7 +6,9 @@ from subtitlemaker.config import ModelConfig, SubtitleStyle
 from subtitlemaker.segmenter import build_subtitles
 from tests.conftest import make_segment, make_word
 
-STYLE = SubtitleStyle(start_offset=0.0)  # these tests follow the raw word times
+# These tests follow the raw word times; min_duration 1.0 is what they were written for
+# (it also decides when quick speakers are merged, see the last test).
+STYLE = SubtitleStyle(start_offset=0.0, min_duration=1.0)
 
 
 def words_segment(spec, start=None, end=None):
@@ -295,3 +297,19 @@ def test_a_speaker_too_long_for_a_line_starts_a_new_cue():
         "–Torsdag, fredag, lördag. Det borde vi lösa.",
         "–Jag känner mig fan manipulerad.",
     ]
+
+
+def test_quick_speakers_are_merged_when_the_first_would_be_shorter_than_min_duration():
+    # "–Hej. –Hej." is 1.1 s of speech: enough at min_duration 1.0, too short at the default 1.3.
+    words = [
+        (" –Hej.", 0.0, 0.5),
+        (" –Hej.", 0.6, 1.1),
+        (" –Tja.", 1.2, 1.6),
+    ]
+    segment = make_segment(" –Hej. –Hej. –Tja.", 0.0, 1.6, [make_word(*w) for w in words])
+
+    split = build_subtitles([segment], SubtitleStyle(start_offset=0.0, min_duration=1.0))
+    merged = build_subtitles([segment], SubtitleStyle(start_offset=0.0, min_duration=1.3))
+
+    assert texts(split) == ["–Hej. –Hej.", "–Tja."]
+    assert texts(merged) == ["–Hej. –Hej. –Tja."]

@@ -354,7 +354,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--min-duration",
         type=float,
         metavar="SEC",
-        help="Minimum subtitle duration (default: 1.0)",
+        help="Minimum subtitle duration (default: 1.3)",
     )
 
     style_group.add_argument(
@@ -387,7 +387,7 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="SEC",
         help=(
             "Keep a subtitle up this long after its speech ends, "
-            "if the time is free; 0 turns it off (default: 0.5)"
+            "if the time is free; 0 turns it off (default: 1.0)"
         ),
     )
 

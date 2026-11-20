@@ -29,11 +29,11 @@ class SubtitleStyle:
     max_line_length: int = 42  # Maximum characters per line
     max_lines: int = 2  # Maximum number of lines
     max_cps: float = 20.0  # Maximum characters per second
-    min_duration: float = 1.0  # Minimum subtitle duration (seconds)
+    min_duration: float = 1.3  # Minimum subtitle duration (seconds)
     max_duration: float = 7.0  # Maximum subtitle duration (seconds)
     min_gap: float = 0.05  # Minimum gap between subtitles (seconds)
     max_pause: float = 1.0  # Silence between two words that starts a new subtitle (seconds)
-    linger: float = 0.5  # Time a subtitle stays up after its speech ends, if free (seconds)
+    linger: float = 1.0  # Time a subtitle stays up after its speech ends, if free (seconds)
     close_gap: float = 0.5  # A shorter gap between two subtitles is closed (seconds)
     # Whisper's word times run early (measured 0.2-0.35 s before the voice, SUBMAKER-69);
     # this is added to every cue time (word times, and segment times without words).
