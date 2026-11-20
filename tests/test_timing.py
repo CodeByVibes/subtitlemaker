@@ -260,3 +260,26 @@ def test_start_offset_has_a_limit(value):
 def test_start_offset_must_be_finite(value):
     with pytest.raises(ConfigError, match="start_offset"):
         SubtitleStyle(start_offset=value)
+
+
+def test_no_cue_ends_after_the_media(segment):
+    style = SubtitleStyle(start_offset=0.0)
+    cues = build_subtitles([segment("Bye now.", 9.8, 10.0)], style, limit=10.2)
+
+    assert cues[0]["end"] == pytest.approx(10.2)
+
+
+def test_the_media_limit_never_drops_or_inverts_a_cue(segment):
+    style = SubtitleStyle(start_offset=0.0)
+    cues = build_subtitles([segment("Bye now.", 10.0, 10.1)], style, limit=10.0)
+
+    assert [c["text"] for c in cues] == ["Bye now."]
+    assert cues[0]["end"] > cues[0]["start"]
+
+
+def test_limit_zero_means_unknown(segment):
+    style = SubtitleStyle(start_offset=0.0)
+
+    assert build_subtitles([segment("Bye now.", 9.8, 10.0)], style) == build_subtitles(
+        [segment("Bye now.", 9.8, 10.0)], style, limit=0.0
+    )

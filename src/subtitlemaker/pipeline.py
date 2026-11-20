@@ -119,11 +119,14 @@ class FileResult:
     warnings: list[str]
     style: SubtitleStyle  # the style `subtitles` were built with
     text_language: str | None  # the language the line breaking assumed (None: mixed or unknown)
+    media_end: float = 0.0  # length of the decoded audio, where cues stop (0.0: unknown)
 
     def rebuild(self, style: SubtitleStyle | None = None) -> list[Cue]:
         """The subtitles built again from the transcript, with `style` (default: the one used)."""
 
-        return build_subtitles(self.segments, style or self.style, self.text_language)
+        return build_subtitles(
+            self.segments, style or self.style, self.text_language, limit=self.media_end
+        )
 
 
 def process_file(
@@ -285,7 +288,8 @@ def process_file(
 
     recorded = record_segments(processed_segments)
     dropped: list[str] = []
-    subtitles = build_subtitles(recorded, options.style, text_language, dropped)
+    media_end = _audio_length(info) or duration
+    subtitles = build_subtitles(recorded, options.style, text_language, dropped, media_end)
 
     if dropped:
 
@@ -326,6 +330,7 @@ def process_file(
         warnings=warnings,
         style=options.style,
         text_language=text_language,
+        media_end=media_end,
     )
 
 
@@ -333,6 +338,19 @@ def process_file(
 # beyond both of these the file is probably cut off or damaged.
 _DURATION_TOLERANCE_SECONDS = 10.0
 _DURATION_TOLERANCE_FRACTION = 0.02
+
+
+def _audio_length(info: Any) -> float:
+    """Seconds of audio faster-whisper decoded, 0.0 if it did not say (or said nonsense)."""
+
+    value = getattr(info, "duration", None)
+
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return 0.0
+
+    audio = float(value)
+
+    return audio if math.isfinite(audio) and audio > 0 else 0.0
 
 
 def _reconcile_duration(
@@ -349,14 +367,9 @@ def _reconcile_duration(
     more than a little, with a warning.
     """
 
-    value = getattr(info, "duration", None)
+    audio = _audio_length(info)
 
-    if isinstance(value, bool) or not isinstance(value, int | float):
-        return container
-
-    audio = float(value)
-
-    if not math.isfinite(audio) or audio <= 0:
+    if not audio:
         return container
 
     if not container:

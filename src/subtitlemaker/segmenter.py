@@ -604,6 +604,14 @@ def _apply_timing(cues: Sequence[Cue], style: SubtitleStyle) -> list[Cue]:
     return timed
 
 
+def _cap_at(cues: list[Cue], limit: float) -> list[Cue]:
+    """Cues that end no later than `limit`; text is kept, so a cue keeps `_MIN_VISIBLE`."""
+
+    return [
+        {**cue, "end": max(min(cue["end"], limit), cue["start"] + _MIN_VISIBLE)} for cue in cues
+    ]
+
+
 # Sentence and clause marks in the scripts Whisper commonly writes.
 _PUNCTUATION = frozenset(".,!?;:…。，、！？؟،।")
 
@@ -640,11 +648,14 @@ def build_subtitles(
     style: SubtitleStyle,
     language: str | None = None,
     dropped: list[str] | None = None,
+    limit: float = 0.0,
 ) -> list[Cue]:
     """
     Convert Whisper segments into formatted subtitles.
 
     Segments left out as repeats with squeezed timing are listed in `dropped`.
+    `limit` (seconds, 0 = unknown) is the length of the media: no cue ends after it.
+    A cue is never dropped for it and keeps its minimum visible length.
 
     `language` is the language of the subtitle text (a code such as "en"),
     or None when unknown or mixed. It only affects where lines are broken.
@@ -662,4 +673,6 @@ def build_subtitles(
         cue["text"] = "\n".join(lines)
         cues.append(cue)
 
-    return _apply_timing(cues, style)
+    timed = _apply_timing(cues, style)
+
+    return _cap_at(timed, limit) if limit > 0 else timed

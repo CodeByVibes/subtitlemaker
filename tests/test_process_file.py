@@ -217,7 +217,9 @@ def test_the_result_can_build_other_subtitles_from_the_same_transcript(
 
     assert other != result.subtitles  # a different style gives different subtitles
     assert len(other) > len(result.subtitles)
-    assert other == build_subtitles(result.segments, narrow, result.text_language)
+    assert other == build_subtitles(
+        result.segments, narrow, result.text_language, limit=result.media_end
+    )
     assert result.rebuild() == result.subtitles  # and asking again for the original is unchanged
 
 
