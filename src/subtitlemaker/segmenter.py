@@ -431,6 +431,64 @@ def _untimed_cues(
     return cues
 
 
+# Whisper sometimes says a sentence again, with the timing of every word of the repeat
+# squeezed into a fraction of a second, so it flashes up as a cue of 0.1 s (SUBMAKER-70).
+# A segment is dropped only when all three hold: it has at least this many words, they are
+# spoken faster than a person can speak, and they repeat text said a moment before. Fast
+# speech with squeezed timing that is NOT a repeat is kept, and so is a real repetition.
+_REPEAT_MIN_WORDS = 6
+_REPEAT_MIN_WORDS_PER_SECOND = 20.0
+_REPEAT_MIN_FRACTION = 0.8
+_REPEAT_HISTORY_WORDS = 80
+
+
+def _plain_words(tokens: Sequence[Token]) -> list[str]:
+    """The words of `tokens` in lower case without punctuation, for comparing text."""
+
+    plain = (re.sub(r"[^\w']", "", text.lower()) for text, _, _ in tokens)
+
+    return [word for word in plain if word]
+
+
+def _longest_match(words: Sequence[str], history: Sequence[str]) -> int:
+    """The most consecutive words of `words` that also appear, in order, in `history`."""
+
+    best = 0
+
+    for start in range(len(words)):
+
+        for at in range(len(history)):
+
+            length = 0
+
+            while (
+                start + length < len(words)
+                and at + length < len(history)
+                and words[start + length] == history[at + length]
+            ):
+                length += 1
+
+            best = max(best, length)
+
+    return best
+
+
+def _is_collapsed_repeat(tokens: Sequence[Token], history: Sequence[str]) -> bool:
+    """Whether a timed segment is a repeat of recent text with impossibly squeezed timing."""
+
+    words = _plain_words(tokens)
+
+    if len(words) < _REPEAT_MIN_WORDS:
+        return False
+
+    first, last = _seconds(tokens[0][1]), _seconds(tokens[-1][2])
+
+    if last - first >= len(words) / _REPEAT_MIN_WORDS_PER_SECOND:
+        return False
+
+    return _longest_match(words, history) >= _REPEAT_MIN_FRACTION * len(words)
+
+
 def _speech_cues(segments: Iterable[SegmentLike], style: SubtitleStyle) -> list[Cue]:
     """
     Cues with their speech timing and no padding.
@@ -444,6 +502,7 @@ def _speech_cues(segments: Iterable[SegmentLike], style: SubtitleStyle) -> list[
 
     cues: list[Cue] = []
     stream: list[Token] = []
+    history: list[str] = []  # the recent words, to spot a repeat with squeezed timing
 
     for segment in segments:
 
@@ -459,7 +518,13 @@ def _speech_cues(segments: Iterable[SegmentLike], style: SubtitleStyle) -> list[
             stream = []
 
             cues.extend(_untimed_cues(segment, tokens, style))
+            history = (history + _plain_words(tokens))[-_REPEAT_HISTORY_WORDS:]
             continue
+
+        if _is_collapsed_repeat(tokens, history):
+            continue
+
+        history = (history + _plain_words(tokens))[-_REPEAT_HISTORY_WORDS:]
 
         # Keep the last word of one segment and the first of the next apart.
         word, start, end = tokens[0]
