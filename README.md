@@ -250,6 +250,7 @@ The transcript (the words and their times) is kept apart from the subtitle setti
 - Speakers are not identified, and no sound descriptions like `[music]` are added.
 - The desktop app is new. It has been used on Linux (Wayland) only. Dropping files on the list has been tested with simulated drops, not from a real file manager, and the native file dialogs depend on your desktop. You cannot edit the text of a subtitle in it, and it does not play the media.
 - A preview needs the transcript, so it is only there for files transcribed in the current session.
+- Running the same file twice can give slightly different subtitles when the audio is hard (music, laughter, overlapping voices). Whisper retries a stretch it is unsure about with some randomness. On clear speech the output is identical every time. If you need identical output on difficult audio, use the `temperature` setting of faster-whisper through your own script; this tool does not offer a seed. When comparing settings, repeat the run before believing a small difference.
 - The standalone apps are unsigned, and CPU only (see [Standalone apps](#standalone-apps)).
 
 ## Contributing
