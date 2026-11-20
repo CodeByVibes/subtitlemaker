@@ -19,7 +19,7 @@ def test_one_short_segment_gives_one_cue(segment):
 
     assert len(cues) == 1
     assert cues[0]["text"] == "Hello there."
-    assert cues[0]["start"] == pytest.approx(1.0, abs=0.1)
+    assert cues[0]["start"] == pytest.approx(1.0 + STYLE.start_offset, abs=0.1)
 
 
 def test_empty_and_whitespace_segments_are_skipped(segment):

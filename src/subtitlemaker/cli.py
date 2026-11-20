@@ -408,7 +408,7 @@ def _build_parser() -> argparse.ArgumentParser:
         help=(
             "Move every subtitle this much later (negative: earlier). Whisper's word "
             "times run early, so cues otherwise appear before the voice; 0 turns "
-            "it off (default: 0.15)"
+            "it off; between -30 and 30 (default: 0.15)"
         ),
     )
 

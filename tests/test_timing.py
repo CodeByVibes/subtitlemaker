@@ -11,7 +11,7 @@ from subtitlemaker.config import ConfigError, SubtitleStyle
 from subtitlemaker.segmenter import build_subtitles
 from tests.conftest import make_segment
 
-STYLE = SubtitleStyle()
+STYLE = SubtitleStyle(start_offset=0.0)  # these tests follow the raw times
 EPS = 1e-6
 
 
@@ -137,7 +137,7 @@ def test_a_cue_is_never_shown_for_less_than_a_tenth_of_a_second(segment):
     assert cues[1]["start"] == pytest.approx(cues[0]["end"] + STYLE.min_gap)
 
 
-QUIET = SubtitleStyle(linger=0.0)  # isolates gap closing from the linger
+QUIET = SubtitleStyle(linger=0.0, start_offset=0.0)  # isolates gap closing from the linger
 
 
 def test_cue_lingers_after_its_speech_when_there_is_room(segment):
@@ -178,7 +178,7 @@ def test_a_gap_of_close_gap_or_more_stays_open(segment):
 
 
 def test_close_gap_zero_turns_it_off(segment):
-    style = SubtitleStyle(linger=0.0, close_gap=0.0)
+    style = SubtitleStyle(linger=0.0, close_gap=0.0, start_offset=0.0)
     cues = build_subtitles(
         [segment("Hello there friend.", 0.0, 2.0), segment("Hi.", 2.1, 3.0)], style
     )
@@ -234,11 +234,26 @@ def test_negative_start_offset_moves_earlier_but_not_before_zero():
     assert clamped[0]["start"] == 0.0
 
 
-def test_start_offset_does_not_move_cues_without_word_times(segment):
+def test_start_offset_moves_cues_without_word_times_too(segment):
     plain = build_subtitles([segment("Hello there.", 1.0, 3.0)], SubtitleStyle(start_offset=0.0))
     moved = build_subtitles([segment("Hello there.", 1.0, 3.0)], SubtitleStyle(start_offset=0.5))
 
-    assert moved == plain
+    assert moved[0]["start"] == pytest.approx(plain[0]["start"] + 0.5)
+
+
+def test_negative_start_offset_keeps_the_length_of_a_cue_near_zero():
+    clamped = build_subtitles(
+        [_timed(0.2, 0.9)], SubtitleStyle(start_offset=-0.5, min_duration=0.1, linger=0)
+    )
+
+    assert clamped[0]["start"] == 0.0
+    assert clamped[0]["end"] == pytest.approx(0.4)
+
+
+@pytest.mark.parametrize("value", [30.1, -30.1, 1000.0])
+def test_start_offset_has_a_limit(value):
+    with pytest.raises(ConfigError, match="start_offset must be between"):
+        SubtitleStyle(start_offset=value)
 
 
 @pytest.mark.parametrize("value", [float("nan"), float("inf")])

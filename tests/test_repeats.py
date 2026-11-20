@@ -136,3 +136,22 @@ def test_a_repeat_of_text_without_word_timing_is_found_too():
     squeezed = timed(SENTENCE, 340.5, 0.08)
 
     assert len(build_subtitles([spoken, squeezed], STYLE)) == len(build_subtitles([spoken], STYLE))
+
+
+def test_a_repeat_with_one_changed_word_is_still_dropped():
+    spoken = timed(SENTENCE, 333.0, 6.0)
+    changed = timed(SENTENCE.replace("sure", "certain"), 340.5, 0.08)
+
+    cues = build_subtitles([spoken, changed], STYLE)
+
+    assert len(cues) == 1
+
+
+def test_the_text_of_a_dropped_repeat_is_reported():
+    spoken = timed(SENTENCE, 333.0, 6.0)
+    squeezed = timed(SENTENCE, 340.5, 0.08)
+    dropped = []
+
+    build_subtitles([spoken, squeezed], STYLE, dropped=dropped)
+
+    assert dropped == [SENTENCE]

@@ -28,12 +28,12 @@ We waited for the answer and
 then it finally came back
 
 8
-00:00:33,000 --> 00:00:38,782
+00:00:33,150 --> 00:00:38,932
 This segment has no word level timing
 so its long text is shared out by length
 
 9
-00:00:38,832 --> 00:00:41,500
+00:00:38,982 --> 00:00:41,650
 across the cues that it needs
 
 10

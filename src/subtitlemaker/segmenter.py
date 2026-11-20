@@ -3,6 +3,7 @@
 Pure logic: no printing, no file access, no model.
 """
 
+import difflib
 import re
 from collections.abc import Iterable, Sequence
 
@@ -394,25 +395,40 @@ def _timed_cues(tokens: Sequence[Token], style: SubtitleStyle) -> list[Cue]:
     # Never before the start of the media.
     offset = style.start_offset
 
-    return [
-        {
-            "start": max(0.0, _seconds(chunk[0][1]) + offset),
-            "end": max(0.0, max(_seconds(chunk[-1][2]), _seconds(chunk[0][1])) + offset),
-            "text": _join(chunk),
-        }
-        for chunk in _chunk(tokens, style)
-    ]
+    cues: list[Cue] = []
+
+    for chunk in _chunk(tokens, style):
+
+        first = _seconds(chunk[0][1])
+        last = max(_seconds(chunk[-1][2]), first)
+
+        start, end = _shifted(first, last, offset)
+
+        cues.append({"start": start, "end": end, "text": _join(chunk)})
+
+    return cues
+
+
+def _shifted(start: float, end: float, offset: float) -> tuple[float, float]:
+    """`start` and `end` moved by `offset`, never before 0; the end never before the start."""
+
+    moved = max(0.0, start + offset)
+
+    return moved, max(moved, end + offset)
 
 
 def _untimed_cues(
     segment: SegmentLike, tokens: Sequence[Token], style: SubtitleStyle
 ) -> list[Cue]:
-    """Cues for a segment without word timing: its duration shared out by text length."""
+    """Cues for a segment without word timing: its duration shared out by text length.
+
+    The start offset applies here too, so a file that mixes timed and untimed
+    cues keeps its order and gaps.
+    """
 
     chunks = _chunk(tokens, style)
 
-    start = float(segment.start)
-    end = float(segment.end)
+    start, end = _shifted(float(segment.start), float(segment.end), style.start_offset)
 
     total_chars = sum(len(_join(chunk)) for chunk in chunks)
 
@@ -450,27 +466,12 @@ def _plain_words(tokens: Sequence[Token]) -> list[str]:
     return [word for word in plain if word]
 
 
-def _longest_match(words: Sequence[str], history: Sequence[str]) -> int:
-    """The most consecutive words of `words` that also appear, in order, in `history`."""
+def _matched_words(words: Sequence[str], history: Sequence[str]) -> int:
+    """How many of `words` also appear, in order, in `history` (a changed word is tolerated)."""
 
-    best = 0
+    matcher = difflib.SequenceMatcher(None, words, history, autojunk=False)
 
-    for start in range(len(words)):
-
-        for at in range(len(history)):
-
-            length = 0
-
-            while (
-                start + length < len(words)
-                and at + length < len(history)
-                and words[start + length] == history[at + length]
-            ):
-                length += 1
-
-            best = max(best, length)
-
-    return best
+    return sum(block.size for block in matcher.get_matching_blocks())
 
 
 def _is_collapsed_repeat(tokens: Sequence[Token], history: Sequence[str]) -> bool:
@@ -486,10 +487,12 @@ def _is_collapsed_repeat(tokens: Sequence[Token], history: Sequence[str]) -> boo
     if last - first >= len(words) / _REPEAT_MIN_WORDS_PER_SECOND:
         return False
 
-    return _longest_match(words, history) >= _REPEAT_MIN_FRACTION * len(words)
+    return _matched_words(words, history) >= _REPEAT_MIN_FRACTION * len(words)
 
 
-def _speech_cues(segments: Iterable[SegmentLike], style: SubtitleStyle) -> list[Cue]:
+def _speech_cues(
+    segments: Iterable[SegmentLike], style: SubtitleStyle, dropped: list[str] | None = None
+) -> list[Cue]:
     """
     Cues with their speech timing and no padding.
 
@@ -498,6 +501,9 @@ def _speech_cues(segments: Iterable[SegmentLike], style: SubtitleStyle) -> list[
     can end one word before the sentence does), so they are not used as cue
     breaks. Pauses, line limits and punctuation decide where cues end. A
     segment without word timing is chunked on its own and ends the stream.
+
+    The text of a segment dropped as a collapsed repeat is appended to
+    `dropped` (when given), so the caller can tell the user.
     """
 
     cues: list[Cue] = []
@@ -522,6 +528,8 @@ def _speech_cues(segments: Iterable[SegmentLike], style: SubtitleStyle) -> list[
             continue
 
         if _is_collapsed_repeat(tokens, history):
+            if dropped is not None:
+                dropped.append(text)
             continue
 
         history = (history + _plain_words(tokens))[-_REPEAT_HISTORY_WORDS:]
@@ -628,10 +636,15 @@ def lacks_punctuation(segments: Sequence[SegmentLike], language: str | None) -> 
 
 
 def build_subtitles(
-    segments: Iterable[SegmentLike], style: SubtitleStyle, language: str | None = None
+    segments: Iterable[SegmentLike],
+    style: SubtitleStyle,
+    language: str | None = None,
+    dropped: list[str] | None = None,
 ) -> list[Cue]:
     """
     Convert Whisper segments into formatted subtitles.
+
+    Segments left out as repeats with squeezed timing are listed in `dropped`.
 
     `language` is the language of the subtitle text (a code such as "en"),
     or None when unknown or mixed. It only affects where lines are broken.
@@ -639,7 +652,7 @@ def build_subtitles(
 
     cues: list[Cue] = []
 
-    for cue in _speech_cues(segments, style):
+    for cue in _speech_cues(segments, style, dropped):
 
         lines = split_into_lines(cue["text"], style, language)
 

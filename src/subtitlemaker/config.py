@@ -19,6 +19,9 @@ class ConfigError(ValueError):
     """Raised for an invalid config file or setting."""
 
 
+MAX_START_OFFSET = 30.0  # seconds, either way
+
+
 @dataclass(frozen=True)
 class SubtitleStyle:
     """How subtitle cues are laid out and timed."""
@@ -33,7 +36,8 @@ class SubtitleStyle:
     linger: float = 0.5  # Time a subtitle stays up after its speech ends, if free (seconds)
     close_gap: float = 0.5  # A shorter gap between two subtitles is closed (seconds)
     # Whisper's word times run early (measured 0.2-0.35 s before the voice, SUBMAKER-69);
-    # this is added to every word time of a timed cue. Negative values are allowed.
+    # this is added to every cue time (word times, and segment times without words).
+    # Negative values are allowed, up to MAX_START_OFFSET either way.
     start_offset: float = 0.15
 
     def __post_init__(self) -> None:
@@ -54,6 +58,11 @@ class SubtitleStyle:
         for name in ("max_cps", "min_duration", "max_duration", "max_pause"):
             if getattr(self, name) <= 0:
                 raise ConfigError(f"{name} must be greater than 0")
+
+        if abs(self.start_offset) > MAX_START_OFFSET:
+            raise ConfigError(
+                f"start_offset must be between -{MAX_START_OFFSET:g} and {MAX_START_OFFSET:g}"
+            )
 
         for name in ("min_gap", "linger", "close_gap"):
             if getattr(self, name) < 0:

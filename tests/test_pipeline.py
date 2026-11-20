@@ -26,7 +26,7 @@ def test_word_timestamps_are_requested_by_default(run, fake_model, media):
 
 
 def test_no_word_timestamps_flag_falls_back_to_segment_timing(run, fake_model, media):
-    run(str(media), "-q", "--no-word-timestamps", "--linger", "0")
+    run(str(media), "-q", "--no-word-timestamps", "--linger", "0", "--start-offset", "0")
 
     assert fake_model.calls[0]["word_timestamps"] is False
     assert media.with_suffix(".srt").read_text().startswith("1\n00:00:00,000 --> 00:00:03,000")

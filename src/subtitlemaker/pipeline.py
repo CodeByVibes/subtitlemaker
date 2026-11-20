@@ -284,7 +284,21 @@ def process_file(
         warnings.append(message)
 
     recorded = record_segments(processed_segments)
-    subtitles = build_subtitles(recorded, options.style, text_language)
+    dropped: list[str] = []
+    subtitles = build_subtitles(recorded, options.style, text_language, dropped)
+
+    if dropped:
+
+        message = (
+            f"Left out {len(dropped)} repeated "
+            f"{'sentence' if len(dropped) == 1 else 'sentences'} whose words Whisper timed "
+            f"into a fraction of a second in {input_file.name}: "
+            + "; ".join(f'"{text}"' for text in dropped[:3])
+            + (" ..." if len(dropped) > 3 else "")
+        )
+
+        log.warning("%s", message)
+        warnings.append(message)
 
     log.info("Generated %d subtitle cues.", len(subtitles))
 
@@ -355,8 +369,9 @@ def _reconcile_duration(
 
     message = (
         f"{input_file.name} says it is {format_time(container)} long, but its audio is "
-        f"{format_time(audio)}; the file may be cut off or damaged. Progress and speed "
-        f"use {format_time(audio)}."
+        f"{format_time(audio)}. That is normal if the audio is shorter than the video; "
+        f"otherwise the file may be cut off or damaged. Progress and speed use "
+        f"{format_time(audio)}."
     )
 
     log.warning("%s", message)
