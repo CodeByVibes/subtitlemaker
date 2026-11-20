@@ -52,6 +52,7 @@ class FakeModel:
         self.fail = {}  # file name -> exception to raise
         self.segments = None  # segments to return instead of the default
         self.language = "en"  # the language it "detects"
+        self.audio_duration = None  # seconds of decoded audio to report in `info`, if any
 
     def transcribe(self, path, **kwargs):
         name = Path(path).name
@@ -61,15 +62,21 @@ class FakeModel:
             raise self.fail[name]
 
         if self.segments is not None:
-            return iter(self.segments), SimpleNamespace(
-                language=self.language, language_probability=0.99
-            )
+            return iter(self.segments), self._info()
 
         words = [make_word(" Hello", 1.0, 1.5), make_word(" world.", 1.6, 2.4)]
         words = words if kwargs["word_timestamps"] else None
         segments = [make_segment(" Hello world.", 0.0, 3.0, words)]
 
-        return iter(segments), SimpleNamespace(language=self.language, language_probability=0.99)
+        return iter(segments), self._info()
+
+    def _info(self):
+        info = SimpleNamespace(language=self.language, language_probability=0.99)
+
+        if self.audio_duration is not None:
+            info.duration = self.audio_duration
+
+        return info
 
 
 @pytest.fixture

@@ -8,6 +8,7 @@ returns what happened as a `FileResult`.
 
 import dataclasses
 import logging
+import math
 import threading
 import time
 from collections.abc import Callable, Iterable, Sequence
@@ -207,6 +208,9 @@ def process_file(
         language_detection_threshold=options.detect_threshold,
     )
 
+    # `transcribe` has decoded the audio by now, so its length is known for certain.
+    duration = _reconcile_duration(duration, info, input_file, warnings)
+
     processed_segments = []
 
     if on_progress is not None:
@@ -309,6 +313,56 @@ def process_file(
         style=options.style,
         text_language=text_language,
     )
+
+
+# The container's duration may differ from the audio a little (a longer video track);
+# beyond both of these the file is probably cut off or damaged.
+_DURATION_TOLERANCE_SECONDS = 10.0
+_DURATION_TOLERANCE_FRACTION = 0.02
+
+
+def _reconcile_duration(
+    container: float, info: Any, input_file: Path, warnings: list[str]
+) -> float:
+    """
+    The duration that progress and speed should use.
+
+    The container's number is read from a header, so a file that was cut off
+    (an interrupted download) can claim hours it does not have: one 20 minute
+    file said 9.7 hours, which made the progress bar stall near 2% and the
+    speed 250x. `info.duration` is the length of the audio that was decoded.
+    It is used when the container gives none, and when the two disagree by
+    more than a little, with a warning.
+    """
+
+    value = getattr(info, "duration", None)
+
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return container
+
+    audio = float(value)
+
+    if not math.isfinite(audio) or audio <= 0:
+        return container
+
+    if not container:
+        return audio
+
+    allowed = max(_DURATION_TOLERANCE_SECONDS, _DURATION_TOLERANCE_FRACTION * container)
+
+    if abs(container - audio) <= allowed:
+        return container
+
+    message = (
+        f"{input_file.name} says it is {format_time(container)} long, but its audio is "
+        f"{format_time(audio)}; the file may be cut off or damaged. Progress and speed "
+        f"use {format_time(audio)}."
+    )
+
+    log.warning("%s", message)
+    warnings.append(message)
+
+    return audio
 
 
 def _check_cancelled(cancel: threading.Event | None) -> None:

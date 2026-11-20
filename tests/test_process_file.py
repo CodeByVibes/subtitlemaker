@@ -322,3 +322,93 @@ def test_the_result_rebuilds_with_the_language_the_run_assumed(
         == unknown.subtitles
         == build_subtitles(unknown.segments, narrow.style, None)
     )
+
+
+# --- a file whose container lies about its length (SUBMAKER-71) -----------------------
+
+
+def _progress(fake_model, media, options, tmp_path):
+    reports = []
+    result = process_file(
+        fake_model,
+        media,
+        {"srt": tmp_path / "a.srt"},
+        options,
+        on_progress=lambda position, duration: reports.append((position, duration)),
+    )
+
+    return result, reports
+
+
+def test_a_container_that_claims_far_more_than_the_audio_is_corrected_with_a_warning(
+    fake_model, media, options, tmp_path, monkeypatch
+):
+    monkeypatch.setattr("subtitlemaker.pipeline.get_duration", lambda path: 35138.2)  # 9:45:38
+    fake_model.audio_duration = 1225.3  # 20:25 really decoded
+
+    result, reports = _progress(fake_model, media, options, tmp_path)
+
+    assert result.duration == 1225.3
+    assert reports[0] == (0.0, 1225.3)
+    assert reports[-1] == (1225.3, 1225.3)
+    assert len(result.warnings) == 1
+    assert "talk.mp3 says it is 09:45:38 long, but its audio is 00:20:25" in result.warnings[0]
+    assert "cut off or damaged" in result.warnings[0]
+
+
+def test_a_small_difference_between_container_and_audio_is_ignored(
+    fake_model, media, options, tmp_path
+):
+    fake_model.audio_duration = 6.5  # the container says 10.0: a video track a little longer
+
+    result, _ = _progress(fake_model, media, options, tmp_path)
+
+    assert result.duration == 10.0
+    assert result.warnings == []
+
+
+def test_a_difference_just_over_the_tolerance_warns(fake_model, media, options, tmp_path):
+    fake_model.audio_duration = 10.0 + 10.5  # container says 10.0
+
+    result, _ = _progress(fake_model, media, options, tmp_path)
+
+    assert result.duration == 20.5
+    assert len(result.warnings) == 1
+
+
+def test_the_decoded_audio_gives_the_duration_when_the_container_has_none(
+    fake_model, media, options, tmp_path, monkeypatch
+):
+    monkeypatch.setattr("subtitlemaker.pipeline.get_duration", lambda path: 0.0)
+    fake_model.audio_duration = 42.0
+
+    result, reports = _progress(fake_model, media, options, tmp_path)
+
+    assert result.duration == 42.0
+    assert reports[0] == (0.0, 42.0)
+    assert result.warnings == []
+
+
+@pytest.mark.parametrize("value", [0, -3.0, float("nan"), float("inf"), "12", True])
+def test_an_unusable_audio_duration_changes_nothing(fake_model, media, options, tmp_path, value):
+    fake_model.audio_duration = value
+
+    result, _ = _progress(fake_model, media, options, tmp_path)
+
+    assert result.duration == 10.0
+    assert result.warnings == []
+
+
+def test_the_speed_line_uses_the_corrected_duration(
+    fake_model, media, options, tmp_path, monkeypatch, caplog
+):
+    import logging
+
+    monkeypatch.setattr("subtitlemaker.pipeline.get_duration", lambda path: 35138.2)
+    fake_model.audio_duration = 100.0
+    monkeypatch.setattr("subtitlemaker.pipeline.time.monotonic", iter([0.0, 10.0]).__next__)
+
+    with caplog.at_level(logging.INFO):
+        process_file(fake_model, media, {"srt": tmp_path / "a.srt"}, options)
+
+    assert "Average speed: 10.00x realtime" in caplog.text
